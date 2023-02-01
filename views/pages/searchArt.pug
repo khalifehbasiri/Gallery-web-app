@@ -1,0 +1,52 @@
+html(lang="en")
+    head
+        title Artwork
+        script(type='text/javascript', src='/like.js')
+        script(type='text/javascript', src='/unlike.js')
+        script(type='text/javascript', src='/review.js')
+        script(type='text/javascript', src='/r_review.js')
+        script(type='text/javascript', src='/search.js')
+
+    body  
+        include ../partials/headers
+
+        h1 Search art
+
+        p Search parameters 
+        input#Sname(type="textbox", placeholder="name...")
+        input#Sartist(type="textbox", placeholder="artist...")
+        input#Scategory(type="textbox", placeholder="category...")
+        button#search(type='button' onclick="search()") search
+
+        br
+        br
+        br
+        if art != null && user != null
+            - let i = 0;
+            for elem in art
+                a(href=`/art/${elem._id}`) #{elem.name} 
+                br
+                | by: #{elem.artist}
+                br
+                img(src=`${elem.image}`, width="400", height="500")
+                br
+                for elem1 in user.like
+                    if elem1.name == elem.name 
+                        button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
+                        a #{elem.numLikes.length}
+                    else 
+                        button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
+                        a #{elem.numLikes.length}
+                else 
+                    button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
+                    a #{elem.numLikes.length}
+                    
+                a   year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
+                br
+                a Description: #{elem.description}
+
+                input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
+                - i++;
+                br
+                br
+                    

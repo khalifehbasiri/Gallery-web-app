@@ -1,0 +1,97 @@
+html(lang="en")
+    head
+        title Account
+        script(type='text/javascript', src='/changeType.js')
+        script(type='text/javascript', src='/r_review.js')
+        script(type='text/javascript', src='/review.js')
+       
+
+    body  
+        include ../partials/headers
+
+        h1 Account info
+
+        p username: 
+            input#userName(type="textbox", value=`${user.username}`)
+        p password: 
+            input#userPassword(type="textbox", value=`${user.password}`)
+
+        br
+
+        p Account type: #{user.aType}
+        button#accType(type='button') change account type  
+        input#accType1(type="textbox", value=`${user.aType}`, style="display:none")
+
+        br
+        br
+        br
+
+        | following: 
+        br
+        for elem in user.following
+            if elem.aType == "artist"
+                a(href=`/artist/${elem._id}`) #{elem.username}
+                br
+
+        br
+        br
+        ul
+        | likes: 
+        for elem in user.like 
+            li 
+                a(href=`/art/${elem._id}`) #{elem.name}
+        ul
+        | reviews: 
+        for elem in user.reviews 
+            li 
+                a(href=`/art/${elem.artId}`) #{elem.review}
+        
+
+
+        if user.aType == "artist"
+            p Workshops: 
+                a(href="/addWorkshop") Add Workshop
+                for workshop in user.workshops
+                    br
+                    a Name: #{workshop.name}, 
+                    a Goal: #{workshop.goal}, 
+                    a Duration: #{workshop.duration} weeks, 
+                    a signed by #{workshop.signed.length} 
+            p artwork: 
+                a(href="/addArtwork") Add Artwork
+            - let i = 0;
+                for elem in art
+                    a(href=`/art/${elem._id}`) #{elem.name} 
+                    br
+                    img(src=`${elem.image}`, width="400", height="500")
+                    br
+                    a likes: #{elem.numLikes.length}, year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
+                    br
+                    a Description: #{elem.description}
+
+                    p Reviews:
+                    for elem2 in elem.reviews
+                        if elem2.user != user.username
+                            | user:
+                            a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                        else
+                            | user:
+                            a #{elem2.user}
+                        br
+                        if elem2.user == user.username
+                            button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
+                        a  #{elem2.review}
+                        br
+                        br
+                    if elem.artist != user.username
+                        input(id=`rInput${i}` type="textbox")
+                        button(id=`rSubmit${i}` type="button" onclick=`addreview(${i})`) submit
+
+                    br
+
+                    input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
+                    - i++;
+                    br
+                    br
+                
+                

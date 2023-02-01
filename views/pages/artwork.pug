@@ -1,0 +1,68 @@
+html(lang="en")
+    head
+        title Artwork
+        script(type='text/javascript', src='/like.js')
+        script(type='text/javascript', src='/unlike.js')
+        script(type='text/javascript', src='/review.js')
+        script(type='text/javascript', src='/r_review.js')
+
+    body  
+        include ../partials/headers
+
+        h1 Artwork
+
+        - let i = 0;
+            for elem in art
+                if elem.artist != user.username 
+                    a(href=`/art/${elem._id}`) #{elem.name}
+                else 
+                     a(href=`/account`) #{elem.name}
+                br
+                | by: #{elem.artist}
+                br
+                img(src=`${elem.image}`, width="400", height="500")
+                br
+                for elem1 in user.like
+                    if elem1.name == elem.name 
+                        button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
+                        a #{elem.numLikes.length}
+                    else 
+                        button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
+                        a #{elem.numLikes.length}
+                else 
+                    button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
+                    a #{elem.numLikes.length}
+                
+                a   year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
+                br
+                a Description: #{elem.description}
+
+                br
+                p Reviews:
+                for elem2 in elem.reviews
+                    if elem2.user != user.username
+                        | user:
+                        a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                    else
+                        | user:
+                        a #{elem2.user}
+                    br
+                    if elem2.user == user.username
+                        button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
+                    a #{elem2.review}
+                    br
+                    br
+                br
+                if elem.artist != user.username
+                    input(id=`rInput${i}` type="textbox")
+                    button(id=`rSubmit${i}` type="button" onclick=`addreview(${i})`) submit
+
+                input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
+                - i++;
+                br
+                br
+                br
+
+
+                
+            

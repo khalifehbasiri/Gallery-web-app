@@ -1,0 +1,28 @@
+html(lang="en")
+    head
+        title Account
+        script(type='text/javascript', src='/addArt.js')
+
+    body  
+        include ../partials/headers
+
+        h1 Add Artwork
+        | name: 
+        input#Aname(type="textbox", placeholder="name...")
+        br
+        | year: 
+        input#Ayear(type="textbox", placeholder="year...")
+        br
+        | category: 
+        input#Acategory(type="textbox", placeholder="category...")
+        br
+        | medium: 
+        input#Amedium(type="textbox", placeholder="medium...")
+        br
+        | description: 
+        input#Adescription(type="textbox", placeholder="description...")
+        br
+        | image url: 
+        input#Aimage(type="textbox", placeholder="image...")
+        br
+        button#Aadd(type='button' onclick="add_art()") add

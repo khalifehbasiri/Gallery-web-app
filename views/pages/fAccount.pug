@@ -1,0 +1,91 @@
+html(lang="en")
+    head
+        title Account
+        script(type='text/javascript', src='/unfollow.js')
+        script(type='text/javascript', src='/follow.js')
+        script(type='text/javascript', src='/like.js')
+        script(type='text/javascript', src='/unlike.js')
+        script(type='text/javascript', src='/review.js')
+        script(type='text/javascript', src='/r_review.js')
+        script(type='text/javascript', src='/signup.js')
+
+    body  
+        include ../partials/headers
+
+        h1 Artist 
+
+        - let x = 0;
+        p Name:  #{followed.username}
+
+        for elem in user.following
+            if elem.username == followed.username
+                - x++;
+        if (x == 0)
+            button(id="follow", type='button', onclick=`follow("${followed._id}")`) follow 
+        else 
+            button(id="unfollow", type='button', onclick=`unfollow("${followed.username}")`) unfollow
+        
+        br
+        p Workshops:
+                for workshop in followed.workshops
+                    br
+                    if workshop.signed.length != 0
+                        for x in workshop.signed
+                            if x.name != user.username
+                                button( type="button" onclick=`signup("${workshop.name}", "${followed.username}")`) signup
+                            else 
+                                a signed
+                    else 
+                        button( type="button" onclick=`signup("${workshop.name}", "${followed.username}")`) signup
+                            
+                    a Name: #{workshop.name}, 
+                    a Goal: #{workshop.goal},
+                    a Duration: #{workshop.duration}
+        br
+        | art: 
+        br
+        - let i = 0;
+            for elem in art
+                a(href=`/art/${elem._id}`) #{elem.name} 
+                br
+                img(src=`${elem.image}`, width="400", height="500")
+                br
+                for elem1 in user.like
+                    if elem1.name == elem.name 
+                        button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
+                        a #{elem.numLikes.length}
+                    else 
+                        button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
+                        a #{elem.numLikes.length}
+                else 
+                    button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
+                    a #{elem.numLikes.length}
+                
+                a   year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
+                br
+                a Description: #{elem.description}
+
+                br
+                p Reviews:
+                for elem2 in elem.reviews
+                    | user:
+                    a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                    br
+                    if elem2.user == user.username
+                        button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
+                    a #{elem2.review}
+                    br
+                    br
+                br
+                input(id=`rInput${i}` type="textbox")
+                button(id=`rSubmit${i}` type="button" onclick=`addreview(${i})`) submit
+
+                input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
+                - i++;
+                br
+                br
+            
+
+    
+            input#fId(type="textbox", value=`${followed._id}`, style="display:none")
+            

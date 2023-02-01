@@ -1,0 +1,23 @@
+div#header
+    a(href="/home") Home
+    |  
+    if session && session.loggedin
+        span 
+            a(href="/Artwork") Artwork
+        span 
+            a(href="/searchArt") search
+        span 
+            a(href="/Account") Account
+        span   
+            a(href="/logout") Logout
+    else
+        span
+            a(href="/register") Register 
+        span
+            form(action="/login" method="post")
+                | Username: 
+                input(type="text" name="username" required)
+                |   Password: 
+                input(type="password" name="password" required)
+                |   
+                button(type="submit") Login
