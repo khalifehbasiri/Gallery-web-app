@@ -26,10 +26,12 @@ html(lang="en")
                     if elem1.name == elem.name 
                         button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
                         a #{elem.numLikes.length}
-                    else 
-                        button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
-                        a #{elem.numLikes.length}
-                else 
+                - x = 0
+                for elem1 in user.like
+                    if elem1.name == elem.name
+                        - x++
+        
+                if x == 0
                     button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
                     a #{elem.numLikes.length}
                 
