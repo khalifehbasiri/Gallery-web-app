@@ -1,16 +1,21 @@
-html
-	head
-		title Register User
-	
-	body
-		include ../partials/headers.pug
-		div#error(style="color:red")
-		div
-			| Username: 
-			input#name(type="textbox")
-		div
-			| Password: 
-			input#pass(type="password")
-		div
-			button#submit(type="button") Register
-		script(src="/register.js")
+html(lang="en")
+    head
+        title Register User
+        link(rel="stylesheet", href="/styles.css")
+    body
+        include ../partials/headers
+
+        .main-container
+            h1 Register
+
+            #error
+
+            p Username:
+            input#name(type="textbox")
+
+            p Password:
+            input#pass(type="password")
+
+            button#submit(type="button") Register
+
+        script(src="/register.js")

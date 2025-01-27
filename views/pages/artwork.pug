@@ -1,70 +1,63 @@
 html(lang="en")
     head
         title Artwork
+        link(rel="stylesheet", href="/styles.css")
         script(type='text/javascript', src='/like.js')
         script(type='text/javascript', src='/unlike.js')
         script(type='text/javascript', src='/review.js')
         script(type='text/javascript', src='/r_review.js')
-
-    body  
+    body
         include ../partials/headers
 
-        h1 Artwork
+        .main-container
+            h1 Artwork
 
-        - let i = 0;
-            for elem in art
-                if elem.artist != user.username 
-                    a(href=`/art/${elem._id}`) #{elem.name}
-                else 
-                     a(href=`/account`) #{elem.name}
-                br
-                | by: #{elem.artist}
-                br
-                img(src=`${elem.image}`, width="400", height="500")
-                br
-                for elem1 in user.like
-                    if elem1.name == elem.name 
-                        button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
-                        a #{elem.numLikes.length}
-                - x = 0
-                for elem1 in user.like
-                    if elem1.name == elem.name
-                        - x++
-        
-                if x == 0
-                    button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
-                    a #{elem.numLikes.length}
-                
-                a   year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
-                br
-                a Description: #{elem.description}
-
-                br
-                p Reviews:
-                for elem2 in elem.reviews
-                    if elem2.user != user.username
-                        | user:
-                        a(href=`/artist/${elem2.userId}`) #{elem2.user}
+            - let i = 0;
+            if art && art.length
+                each elem in art
+                    if elem.artist != user.username
+                        a(href=`/art/${elem._id}`) #{elem.name}
                     else
-                        | user:
-                        a #{elem2.user}
-                    br
-                    if elem2.user == user.username
-                        button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
-                    a #{elem2.review}
-                    br
-                    br
-                br
-                if elem.artist != user.username
-                    input(id=`rInput${i}` type="textbox")
-                    button(id=`rSubmit${i}` type="button" onclick=`addreview(${i})`) submit
+                        a(href=`/account`) #{elem.name}
 
-                input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
-                - i++;
-                br
-                br
-                br
+                    p By: #{elem.artist}
+                    img(src=`${elem.image}`, width="400", height="500")
 
+                    - let foundLike = false
+                    if user && user.like
+                        each elem1 in user.like
+                            if elem1.name == elem.name
+                                - foundLike = true
 
-                
-            
+                    if foundLike
+                        button(id=`unlike${i}`, value=`${elem._id}`, onclick=`unlike(${i})`) ♥
+                        span #{elem.numLikes.length}
+                    else
+                        button(id=`like${i}`, value=`${elem._id}`, onclick=`like(${i})`) ♡
+                        span #{elem.numLikes.length}
+
+                    p Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
+                    p Description: #{elem.description}
+
+                    p Reviews:
+                    if elem.reviews && elem.reviews.length
+                        each elem2 in elem.reviews
+                            if elem2.user != user.username
+                                | User:
+                                a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                            else
+                                | User: #{elem2.user}
+                            br
+                            if elem2.user == user.username
+                                button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
+                            a #{elem2.review}
+                            br
+                            br
+
+                    if elem.artist != user.username
+                        input(id=`rInput${i}`, type="textbox")
+                        button(id=`rSubmit${i}`, type="button", onclick=`addreview(${i})`) Submit
+
+                    input(id=`yes${i}`, type="textbox", value=`${elem._id}`, style="display:none")
+                    - i++
+                    hr

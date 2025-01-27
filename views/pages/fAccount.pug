@@ -1,6 +1,7 @@
 html(lang="en")
     head
         title Account
+        link(rel="stylesheet", href="/styles.css")
         script(type='text/javascript', src='/unfollow.js')
         script(type='text/javascript', src='/follow.js')
         script(type='text/javascript', src='/like.js')
@@ -8,84 +9,90 @@ html(lang="en")
         script(type='text/javascript', src='/review.js')
         script(type='text/javascript', src='/r_review.js')
         script(type='text/javascript', src='/signup.js')
-
-    body  
+    body
         include ../partials/headers
 
-        h1 Artist 
+        .main-container
+            h1 Artist
 
-        - let x = 0;
-        p Name:  #{followed.username}
+            - let x = 0
+            p Name: #{followed.username}
 
-        for elem in user.following
-            if elem.username == followed.username
-                - x++;
-        if (x == 0)
-            button(id="follow", type='button', onclick=`follow("${followed._id}")`) follow 
-        else 
-            button(id="unfollow", type='button', onclick=`unfollow("${followed.username}")`) unfollow
-        
-        br
-        p Workshops:
-                for workshop in followed.workshops
+            if user && user.following
+                each elem in user.following
+                    if elem.username == followed.username
+                        - x++
+
+            if x == 0
+                button(id="follow", type='button', onclick=`follow("${followed._id}")`) Follow
+            else
+                button(id="unfollow", type='button', onclick=`unfollow("${followed.username}")`) Unfollow
+
+            br
+            h2 Workshops:
+            if followed.workshops && followed.workshops.length
+                each workshop in followed.workshops
                     br
-                    if workshop.signed.length != 0
-                        for x in workshop.signed
-                            if x.name != user.username
-                                button( type="button" onclick=`signup("${workshop.name}", "${followed.username}")`) signup
-                            else 
-                                a signed
-                    else 
-                        button( type="button" onclick=`signup("${workshop.name}", "${followed.username}")`) signup
-                            
-                    a Name: #{workshop.name}, 
-                    a Goal: #{workshop.goal},
-                    a Duration: #{workshop.duration}
-        br
-        | art: 
-        br
-        - let i = 0;
-            for elem in art
-                a(href=`/art/${elem._id}`) #{elem.name} 
-                br
-                img(src=`${elem.image}`, width="400", height="500")
-                br
-                for elem1 in user.like
-                    if elem1.name == elem.name 
-                        button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
-                        a #{elem.numLikes.length}
-                    else 
-                        button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
-                        a #{elem.numLikes.length}
-                else 
-                    button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
-                    a #{elem.numLikes.length}
-                
-                a   year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
-                br
-                a Description: #{elem.description}
+                    - let signedByYou = false
+                    if workshop.signed && workshop.signed.length
+                        each x in workshop.signed
+                            if x.name == user.username
+                                - signedByYou = true
 
-                br
-                p Reviews:
-                for elem2 in elem.reviews
-                    | user:
-                    a(href=`/artist/${elem2.userId}`) #{elem2.user}
-                    br
-                    if elem2.user == user.username
-                        button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
-                    a #{elem2.review}
-                    br
-                    br
-                br
-                input(id=`rInput${i}` type="textbox")
-                button(id=`rSubmit${i}` type="button" onclick=`addreview(${i})`) submit
+                    if !signedByYou
+                        button(type="button", onclick=`signup("${workshop.name}", "${followed.username}")`) Sign up
+                    else
+                        span You have already signed up
 
-                input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
-                - i++;
-                br
-                br
-            
+                    p
+                        | Name: #{workshop.name}, Goal: #{workshop.goal}, Duration: #{workshop.duration} weeks
+            else
+                p No workshops found.
 
-    
+            br
+            h2 Art:
+            br
+            - let i = 0;
+            if art && art.length
+                each elem in art
+                    .review-section
+                        a(href=`/art/${elem._id}`) #{elem.name}
+                        br
+                        img(src=`${elem.image}`, width="400", height="500")
+
+                        - let foundLike = false
+                        if user && user.like
+                            each elem1 in user.like
+                                if elem1.name == elem.name
+                                    - foundLike = true
+
+                        if foundLike
+                            button(id=`unlike${i}`, value=`${elem._id}`, onclick=`unlike(${i})`) ♥
+                            span #{elem.numLikes.length}
+                        else
+                            button(id=`like${i}`, value=`${elem._id}`, onclick=`like(${i})`) ♡
+                            span #{elem.numLikes.length}
+
+                        p Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
+                        p Description: #{elem.description}
+
+                        p Reviews:
+                        if elem.reviews && elem.reviews.length
+                            each elem2 in elem.reviews
+                                | User:
+                                a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                                br
+                                if elem2.user == user.username
+                                    button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
+                                a #{elem2.review}
+                                br
+                                br
+                        input(id=`rInput${i}`, type="textbox")
+                        button(id=`rSubmit${i}`, type="button", onclick=`addreview(${i})`) Submit
+
+                        input#yes#{i}(type="textbox", value=`${elem._id}`, style="display:none")
+                        - i++
+            else
+                p No art found.
+
             input#fId(type="textbox", value=`${followed._id}`, style="display:none")
-            

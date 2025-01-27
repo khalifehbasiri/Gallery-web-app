@@ -1,28 +1,30 @@
 html(lang="en")
     head
-        title Account
+        title Add Artwork
+        link(rel="stylesheet", href="/styles.css")
         script(type='text/javascript', src='/addArt.js')
-
-    body  
+    body
         include ../partials/headers
 
-        h1 Add Artwork
-        | name: 
-        input#Aname(type="textbox", placeholder="name...")
-        br
-        | year: 
-        input#Ayear(type="textbox", placeholder="year...")
-        br
-        | category: 
-        input#Acategory(type="textbox", placeholder="category...")
-        br
-        | medium: 
-        input#Amedium(type="textbox", placeholder="medium...")
-        br
-        | description: 
-        input#Adescription(type="textbox", placeholder="description...")
-        br
-        | image url: 
-        input#Aimage(type="textbox", placeholder="image...")
-        br
-        button#Aadd(type='button' onclick="add_art()") add
+        .main-container
+            h1 Add Artwork
+
+            p Name:
+            input#Aname(type="textbox", placeholder="name...")
+
+            p Year:
+            input#Ayear(type="textbox", placeholder="year...")
+
+            p Category:
+            input#Acategory(type="textbox", placeholder="category...")
+
+            p Medium:
+            input#Amedium(type="textbox", placeholder="medium...")
+
+            p Description:
+            input#Adescription(type="textbox", placeholder="description...")
+
+            p Image URL:
+            input#Aimage(type="textbox", placeholder="image...")
+
+            button#Aadd(type='button', onclick="add_art()") Add

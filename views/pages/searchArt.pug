@@ -1,54 +1,52 @@
 html(lang="en")
     head
         title Artwork
+        link(rel="stylesheet", href="/styles.css")
         script(type='text/javascript', src='/like.js')
         script(type='text/javascript', src='/unlike.js')
         script(type='text/javascript', src='/review.js')
         script(type='text/javascript', src='/r_review.js')
         script(type='text/javascript', src='/search.js')
-
-    body  
+    body
         include ../partials/headers
 
-        h1 Search art
+        .main-container
+            h1 Search Art
 
-        p Search parameters 
-        input#Sname(type="textbox", placeholder="name...")
-        input#Sartist(type="textbox", placeholder="artist...")
-        input#Scategory(type="textbox", placeholder="category...")
-        button#search(type='button' onclick="search()") search
+            p Search parameters
+            input#Sname(type="textbox", placeholder="name...")
+            input#Sartist(type="textbox", placeholder="artist...")
+            input#Scategory(type="textbox", placeholder="category...")
+            button#search(type='button', onclick="search()") Search
 
-        br
-        br
-        br
-        if art != null && user != null
-            - let i = 0;
-            for elem in art
-                a(href=`/art/${elem._id}`) #{elem.name} 
-                br
-                | by: #{elem.artist}
-                br
-                img(src=`${elem.image}`, width="400", height="500")
-                br
-                for elem1 in user.like
-                    if elem1.name == elem.name 
-                        button(id=`unlike${i}` value=`${elem._id}` onclick=`unlike(${i})`) ❤️
-                        a #{elem.numLikes.length}
-                - x = 0
-                for elem1 in user.like
-                    if elem1.name == elem.name
-                        - x++
-        
-                if x == 0
-                    button(id=`like${i}` value=`${elem._id}` onclick=`like(${i})`) 🤍
-                    a #{elem.numLikes.length}
-                    
-                a   year: #{elem.year}, medium: #{elem.medium}, Category: #{elem.category}
-                br
-                a Description: #{elem.description}
+            hr
 
-                input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
-                - i++;
-                br
-                br
-                    
+            if art && user
+                - let i = 0;
+                each elem in art
+                    p
+                        a(href=`/art/${elem._id}`) #{elem.name}
+                        br
+                        | By: #{elem.artist}
+                        br
+                        img(src=`${elem.image}`, width="400", height="500")
+
+                    - let foundLike = false
+                    if user.like
+                        each elem1 in user.like
+                            if elem1.name == elem.name
+                                - foundLike = true
+
+                    if foundLike
+                        button(id=`unlike${i}`, value=`${elem._id}`, onclick=`unlike(${i})`) ♥
+                        span #{elem.numLikes.length}
+                    else
+                        button(id=`like${i}`, value=`${elem._id}`, onclick=`like(${i})`) ♡
+                        span #{elem.numLikes.length}
+
+                    p Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
+                    p Description: #{elem.description}
+
+                    input(id=`yes${i}`, type="textbox", value=`${elem._id}`, style="display:none")
+                    - i++
+                    hr

@@ -1,19 +1,21 @@
-tml(lang="en")
+html(lang="en")
     head
-        title Account
+        title Add Workshop
+        link(rel="stylesheet", href="/styles.css")
         script(type='text/javascript', src='/addWorkshop.js')
-
-    body  
+    body
         include ../partials/headers
 
-        h1 Add Artwork
-        | Name: 
-        input#Wname(type="textbox", placeholder="workshop name...")
-        br
-        | Goal: 
-        input#Wgoal(type="textbox", placeholder="workshop goal...")
-        br
-        | Duration: 
-        input#Wduration(type="textbox", placeholder="workshop duration(weeks)...")
-        br
-        button#Wadd(type='button' onclick="add_workshop()") add
+        .main-container
+            h1 Add Workshop
+
+            p Name:
+            input#Wname(type="textbox", placeholder="workshop name...")
+
+            p Goal:
+            input#Wgoal(type="textbox", placeholder="workshop goal...")
+
+            p Duration (weeks):
+            input#Wduration(type="textbox", placeholder="workshop duration...")
+
+            button#Wadd(type='button', onclick="add_workshop()") Add
