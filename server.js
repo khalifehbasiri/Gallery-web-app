@@ -461,8 +461,10 @@ app.post("/addArt", async (req, res) => {
         const searchResult = await Gallery.findOne({name: temp.name});
   
         if (searchResult == null){
-            const searchResult1 = await Gallery.create(temp);
+            await Gallery.create(temp);
         }
+
+        res.sendStatus(200);
 
     } catch(err) {
         console.log(err);
