@@ -28,6 +28,9 @@ function add_workshop(){
             alert("The Workshop could not be added. Please try again.");
         }
     };
+    xhttp.onerror = function() {
+        alert("Could not connect to the server. Please try again.");
+    };
 
     xhttp.open("POST", "/addWorkshop");
     xhttp.setRequestHeader("Content-Type", "application/json");

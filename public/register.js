@@ -35,6 +35,9 @@ function save(){
 		}
     })
     // Catch any errors that might happen, and display a message.
-    .catch((error) => console.log(err));
+    .catch((error) => {
+        console.log(error);
+        document.getElementById("error").innerHTML = "Could not connect to the server. Please try again.";
+    });
 
 }

@@ -37,6 +37,9 @@ function add_art(){
             alert("The artwork could not be added. Please try again.");
         }
     };
+    xhttp.onerror = function() {
+        alert("Could not connect to the server. Please try again.");
+    };
     xhttp.open("POST", "/addArt");
     xhttp.send(formData);
 }

@@ -157,12 +157,18 @@ app.get('/searchArt', async(req, res) => {
 });
 
 app.post('/searchArt', async(req, res) => {
-    let temp = req.body;
-    let searchResult = [];
-    if (temp != {}){
-        searchResult = await Gallery.find({$and:[temp]});
+    try {
+        let temp = req.body;
+        let searchResult = [];
+        if (temp != {}){
+            searchResult = await Gallery.find({$and:[temp]});
+        }
+        search = searchResult;
+        res.sendStatus(200);
+    } catch(err) {
+        console.log(err);
+        res.status(500).json({ error: "Error searching artwork."});
     }
-    search = searchResult;
 });
 
 app.post("/accType", async (req, res)=>{
@@ -174,6 +180,7 @@ app.post("/accType", async (req, res)=>{
         }else {
             const searchResult = await User.updateOne({username: req.session.username}, {$set: {"aType": "patron"}});
         }
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error updating."});
@@ -256,6 +263,7 @@ app.post("/unfollow", async (req, res) => {
         })
         const searchResult1 = await User.updateOne({ username: req.session.username}, {$set: {"following": temp}});
 
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -292,6 +300,7 @@ app.post("/follow", async (req, res) => {
 
         const searchResult3 = await User.findOne({"username":req.session.username});
 
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -325,6 +334,7 @@ app.post("/like", async (req, res) => {
         searchResult1.numLikes.push("like");
         const searchResult3 = await User.updateOne({ username: req.session.username}, {$set: {"like": temp}});
         const searchResult4 = await Gallery.updateOne({"_id":oid}, {$set: {"numLikes": searchResult1.numLikes}});
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -357,6 +367,7 @@ app.post("/unlike", async (req, res) => {
         searchResult1.numLikes.splice(0,1);
         const searchResult3 = await User.updateOne({ username: req.session.username}, {$set: {"like": temp}});
         const searchResult4 = await Gallery.updateOne({"_id":oid}, {$set: {"numLikes": searchResult1.numLikes}});
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -398,7 +409,7 @@ app.post("/rsubmit", async (req, res) => {
         
         const searchResult2 = await Gallery.updateOne({ _id: oid}, {$set: {"reviews": searchResult1.reviews}});
         const searchResult3 = await User.updateOne({"username": req.session.username}, {$set: {"reviews": searchResult.reviews}});
-        
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -443,7 +454,7 @@ app.post("/rRemove", async (req, res) => {
         
         const searchResult2 = await Gallery.updateOne({ _id: oid}, {$set: {"reviews": searchResult1.reviews}});
         const searchResult3 = await User.updateOne({"username": req.session.username}, {$set: {"reviews": searchResult.reviews}});
-        
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -545,7 +556,7 @@ app.post("/signup", async (req, res) => {
         })
 
         const searchResult1 = await User.updateOne({"username": x.user}, {$set: {"workshops": temp}});
-        
+        res.sendStatus(200);
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
