@@ -513,6 +513,8 @@ app.post("/addWorkshop", async (req, res) => {
         
         const searchResult1 = await User.updateOne({"username": req.session.username}, {$set: {"workshops": array}});
 
+        res.sendStatus(200);
+        
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});

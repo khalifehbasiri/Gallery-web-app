@@ -1,41 +1,35 @@
 function add_workshop(){
-    let name = document.getElementById("Wname").value;
-    let goal = document.getElementById("Wgoal").value;
-    let duration = document.getElementById("Wduration").value;
+    let RequiredFields = ["name", "goal", "duration"]
+    let workshop = {}
 
-    if (name == ""){
-        alert("Missing name field!");
-        return;
+    for (let field of RequiredFields){
+        workshop[field] = document.getElementById("W" + field).value;
+
+        if (workshop[field] == ""){
+            alert("Missing " + field + " field!");
+            return;
+        } 
     }
-    if (goal == ""){
-        alert("Missing year field!");
-        return;
-    }
-    if (duration == ""){
-        alert("Missing category field!");
-        return;
-    }
-    if (isNaN(duration)){
+
+    if (isNaN(workshop.duration)){
         alert("duration must be a number in weeks!");
         return;
     }
 
-    let temp = {
-        user: "",
-        name: name,
-        goal: goal,
-        duration: duration,
-        signed: []
-    }
+    workshop.user = ""
+    workshop.signed = []
 
     let xhttp = new XMLHttpRequest()
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
+
+    xhttp.onload = function() {
+        if (this.status >= 200 && this.status < 300) {
+            window.location.href = "/Account";
+        } else {
+            alert("The Workshop could not be added. Please try again.");
         }
-    }
+    };
+
     xhttp.open("POST", "/addWorkshop");
     xhttp.setRequestHeader("Content-Type", "application/json");
-    xhttp.send(JSON.stringify(temp));
-    
-    location.reload();
+    xhttp.send(JSON.stringify(workshop));
 }
