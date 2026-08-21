@@ -1,7 +1,5 @@
-let urlRegex = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/;
-
 function add_art(){
-    let RequiredFields = ["name", "year", "category", "medium", "description", "image"]
+    let RequiredFields = ["name", "year", "category", "medium", "description"]
     let art = {}
 
     for (let field of RequiredFields){
@@ -18,14 +16,17 @@ function add_art(){
         return;
     }
 
-    if (!(urlRegex.test(art.image))){
-        alert("image must be a valid url");
+    let image = document.getElementById("Aimage").files[0];
+    if (!image){
+        alert("Missing image field!");
         return;
     }
 
-    art.artist = "";
-    art.reviews = [];
-    art.numLikes = [];
+    let formData = new FormData();
+    for (let field of RequiredFields){
+        formData.append(field, art[field]);
+    }
+    formData.append("image", image);
 
     let xhttp = new XMLHttpRequest()
 
@@ -37,6 +38,5 @@ function add_art(){
         }
     };
     xhttp.open("POST", "/addArt");
-    xhttp.setRequestHeader("Content-Type", "application/json");
-    xhttp.send(JSON.stringify(art));
+    xhttp.send(formData);
 }

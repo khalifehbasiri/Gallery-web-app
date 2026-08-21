@@ -1,5 +1,6 @@
 import express from 'express';
 import mongo from 'mongodb';
+import multer from 'multer';
 
 const app = express();
 
@@ -49,6 +50,9 @@ let host = ["localhost", "YOUR_OPENSTACK_IP"];
 //Static server will check the following directory.
 //Needed for the addPerson, deletePerson and register javascript files.
 app.use(express.static("." + ROOT_DIR_JS));
+app.use("/uploads", express.static("uploads"));
+
+const upload = multer({ dest: "uploads/" });
 
 //Convert any JSON stringified strings in a POST request to JSON.
 app.use(express.json());
@@ -453,10 +457,17 @@ app.get('/addArtwork', async(req, res) => {
 
 
 
-app.post("/addArt", async (req, res) => {
+app.post("/addArt", upload.single("image"), async (req, res) => {
     try {
+        if (!req.file){
+            return res.status(400).json({ error: "Image upload is required." });
+        }
+
         let temp = req.body;
+        temp.image = `/uploads/${req.file.filename}`;
         temp.artist = req.session.username;
+        temp.reviews = [];
+        temp.numLikes = [];
 
         const searchResult = await Gallery.findOne({name: temp.name});
   

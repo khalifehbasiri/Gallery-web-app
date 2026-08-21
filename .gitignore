@@ -17,6 +17,9 @@ pnpm-debug.log*
 coverage/
 dist/
 
+# User-uploaded images
+uploads/
+
 # Editor settings
 .vscode/
 .idea/
@@ -25,4 +28,3 @@ dist/
 # Operating system files
 .DS_Store
 Thumbs.db
-
