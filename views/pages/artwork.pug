@@ -31,28 +31,30 @@ html(lang="en")
 
                     if foundLike
                         button(id=`unlike${i}`, value=`${elem._id}`, onclick=`unlike(${i})`) ♥
-                        span #{elem.numLikes.length}
+                        span(id=`likeCount${i}`) #{elem.numLikes.length}
                     else
                         button(id=`like${i}`, value=`${elem._id}`, onclick=`like(${i})`) ♡
-                        span #{elem.numLikes.length}
+                        span(id=`likeCount${i}`) #{elem.numLikes.length}
 
                     p Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
                     p Description: #{elem.description}
 
                     p Reviews:
-                    if elem.reviews && elem.reviews.length
-                        each elem2 in elem.reviews
-                            if elem2.user != user.username
-                                | User:
-                                a(href=`/artist/${elem2.userId}`) #{elem2.user}
-                            else
-                                | User: #{elem2.user}
-                            br
-                            if elem2.user == user.username
-                                button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
-                            a #{elem2.review}
-                            br
-                            br
+                    .reviews(id=`reviews${i}`)
+                        if elem.reviews && elem.reviews.length
+                            each elem2 in elem.reviews
+                                .review-entry
+                                    if elem2.user != user.username
+                                        | User:
+                                        a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                                    else
+                                        | User: #{elem2.user}
+                                    br
+                                    if elem2.user == user.username
+                                        button.review-remove(type='button', value=elem2.review, onclick=`remove_Review(this, ${i})`) X
+                                    a #{elem2.review}
+                                    br
+                                    br
 
                     if elem.artist != user.username
                         input(id=`rInput${i}`, type="textbox")

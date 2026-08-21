@@ -334,7 +334,7 @@ app.post("/like", async (req, res) => {
         searchResult1.numLikes.push("like");
         const searchResult3 = await User.updateOne({ username: req.session.username}, {$set: {"like": temp}});
         const searchResult4 = await Gallery.updateOne({"_id":oid}, {$set: {"numLikes": searchResult1.numLikes}});
-        res.sendStatus(200);
+        res.status(200).json({ numLikes: searchResult1.numLikes.length });
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -367,7 +367,7 @@ app.post("/unlike", async (req, res) => {
         searchResult1.numLikes.splice(0,1);
         const searchResult3 = await User.updateOne({ username: req.session.username}, {$set: {"like": temp}});
         const searchResult4 = await Gallery.updateOne({"_id":oid}, {$set: {"numLikes": searchResult1.numLikes}});
-        res.sendStatus(200);
+        res.status(200).json({ numLikes: searchResult1.numLikes.length });
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -409,7 +409,7 @@ app.post("/rsubmit", async (req, res) => {
         
         const searchResult2 = await Gallery.updateOne({ _id: oid}, {$set: {"reviews": searchResult1.reviews}});
         const searchResult3 = await User.updateOne({"username": req.session.username}, {$set: {"reviews": searchResult.reviews}});
-        res.sendStatus(200);
+        res.status(200).json({ review: temp1 });
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});
@@ -454,7 +454,7 @@ app.post("/rRemove", async (req, res) => {
         
         const searchResult2 = await Gallery.updateOne({ _id: oid}, {$set: {"reviews": searchResult1.reviews}});
         const searchResult3 = await User.updateOne({"username": req.session.username}, {$set: {"reviews": searchResult.reviews}});
-        res.sendStatus(200);
+        res.status(200).json({ removed: true });
     } catch(err) {
         console.log(err);
         res.status(500).json({ error: "Error getting user."});

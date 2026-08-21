@@ -17,6 +17,7 @@ html(lang="en")
 
             img(src=`${art.image}`, width="400", height="500")
 
+            - let i = 0
             - let foundLike = false
             if user && user.like
                 each elem1 in user.like
@@ -25,26 +26,28 @@ html(lang="en")
 
             if foundLike
                 button(id=`unlike${i}`, value=`${art._id}`, onclick=`unlike(${i})`) ♥
-                span #{art.numLikes.length}
+                span(id=`likeCount${i}`) #{art.numLikes.length}
             else
                 button(id=`like${i}`, value=`${art._id}`, onclick=`like(${i})`) ♡
-                span #{art.numLikes.length}
+                span(id=`likeCount${i}`) #{art.numLikes.length}
 
             p Year: #{art.year}, Medium: #{art.medium}, Category: #{art.category}
             p Description: #{art.description}
 
             br
             h2 Reviews:
-            if art.reviews && art.reviews.length
-                each elem2 in art.reviews
-                    | User:
-                    a(href=`/artist/${elem2.userId}`) #{elem2.user}
-                    br
-                    if elem2.user == user.username
-                        button(id="rReview", type='button', onclick=`remove_Review("${elem2.review}", "${i}")`) X
-                    a #{elem2.review}
-                    br
-                    br
+            .reviews(id=`reviews${i}`)
+                if art.reviews && art.reviews.length
+                    each elem2 in art.reviews
+                        .review-entry
+                            | User:
+                            a(href=`/artist/${elem2.userId}`) #{elem2.user}
+                            br
+                            if elem2.user == user.username
+                                button.review-remove(type='button', value=elem2.review, onclick=`remove_Review(this, ${i})`) X
+                            a #{elem2.review}
+                            br
+                            br
 
             if art.artist != user.username
                 input(id=`rInput${i}`, type="textbox")

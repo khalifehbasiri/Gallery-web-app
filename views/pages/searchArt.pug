@@ -39,10 +39,10 @@ html(lang="en")
 
                     if foundLike
                         button(id=`unlike${i}`, value=`${elem._id}`, onclick=`unlike(${i})`) ♥
-                        span #{elem.numLikes.length}
+                        span(id=`likeCount${i}`) #{elem.numLikes.length}
                     else
                         button(id=`like${i}`, value=`${elem._id}`, onclick=`like(${i})`) ♡
-                        span #{elem.numLikes.length}
+                        span(id=`likeCount${i}`) #{elem.numLikes.length}
 
                     p Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
                     p Description: #{elem.description}
