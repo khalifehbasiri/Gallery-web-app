@@ -1,60 +1,34 @@
-function search(){
-    let name = document.getElementById("Sname").value;
-    let artist = document.getElementById("Sartist").value;
-    let category = document.getElementById("Scategory").value;
+function search() {
+    const fields = ["name", "artist", "category"];
+    const searchCriteria = fields.reduce((criteria, field) => {
+        const value = document.getElementById(`S${field}`).value.trim();
 
-    let temp = {};
+        if (value) {
+            criteria[field] = value;
+        }
 
-    
-    if (name != "" && artist != "" && category != ""){
-        temp = {
-            name: name,
-            artist: artist,
-            category: category
-        }
-    }else if (name != "" && artist != "" && category == ""){
-        temp = {
-            name: name,
-            artist: artist,
-        }
-    }else if (name != "" && artist == "" && category != ""){
-        temp = {
-            name: name,
-            category: category
-        }
-    }else if (name != "" && artist == "" && category == ""){
-        temp = {
-            name: name,
-        }
-    }else if (name == "" && artist != "" && category != ""){
-        temp = {
-            artist: artist,
-            category: category
-        }
-    }else if (name == "" && artist != "" && category == ""){
-        temp = {
-            artist: artist,
-        }
-    }else if (name == "" && artist == "" && category != ""){
-        temp = {
-            category: category
-        }
+        return criteria;
+    }, {});
+
+    if (Object.keys(searchCriteria).length === 0) {
+        return;
     }
 
-    if (Object.keys(temp).length != 0){
-        let xhttp = new XMLHttpRequest()
-        xhttp.onload = function() {
-            if (this.status >= 200 && this.status < 300) {
-                window.location.href = "/searchArt";
-            } else {
-                alert("The artwork search could not be completed. Please try again.");
-            }
+    const xhttp = new XMLHttpRequest();
+
+    xhttp.onload = function() {
+        if (this.status >= 200 && this.status < 300) {
+            window.location.href = "/searchArt";
+        } else {
+            alert("The artwork search could not be completed. Please try again.");
         }
-        xhttp.onerror = function() {
-            alert("Could not connect to the server. Please try again.");
-        }
-        xhttp.open("POST", "/searchArt");
-        xhttp.setRequestHeader("Content-Type", "application/json");
-        xhttp.send(JSON.stringify(temp));
-    }
+    };
+
+    xhttp.onerror = function() {
+        alert("Could not connect to the server. Please try again.");
+    };
+
+    xhttp.open("POST", "/searchArt");
+    xhttp.setRequestHeader("Content-Type", "application/json");
+    xhttp.send(JSON.stringify(searchCriteria));
 }
