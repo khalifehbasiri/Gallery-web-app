@@ -1,32 +1,63 @@
 {
   "name": "gallery-web-app",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "An Express and MongoDB gallery for artwork, reviews, and artist workshops.",
+  "description": "An Angular and TypeScript gallery backed by Express and MongoDB.",
   "type": "module",
   "engines": {
     "node": ">=22.14.0"
   },
   "scripts": {
-    "start": "node --env-file-if-exists=.env server.js",
-    "dev": "node --env-file-if-exists=.env --watch server.js",
-    "seed": "node --env-file-if-exists=.env database-initializer.js",
-    "test": "node --test",
-    "check": "node scripts/check.js",
+    "start": "node --env-file-if-exists=.env dist/server/src/server.js",
+    "dev": "concurrently -k -n api,client \"npm:dev:api\" \"npm:dev:client\"",
+    "dev:api": "node --env-file-if-exists=.env --import tsx --watch server/src/server.ts",
+    "dev:client": "ng serve",
+    "build": "npm run build:api && npm run build:client",
+    "build:api": "tsc -p tsconfig.server.json",
+    "build:client": "ng build",
+    "seed": "node --env-file-if-exists=.env --import tsx server/src/seed.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "check": "tsc -p tsconfig.server.json --noEmit && ng build --configuration development",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "demo": "node --import tsx scripts/demo.ts"
   },
   "dependencies": {
-    "connect-mongo": "^5.1.0",
-    "express": "^4.22.3",
-    "express-session": "^1.19.0",
-    "mongoose": "^6.13.11",
+    "@angular/common": "^21.2.24",
+    "@angular/compiler": "^21.2.24",
+    "@angular/core": "^21.2.24",
+    "@angular/forms": "^21.2.24",
+    "@angular/platform-browser": "^21.2.24",
+    "@angular/router": "^21.2.24",
+    "@ngrx/signals": "^21.1.1",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.10.4",
     "multer": "^2.4.0",
-    "pug": "^3.0.4"
+    "rxjs": "^7.8.2",
+    "tslib": "^2.8.1"
+  },
+  "overrides": {
+    "piscina": "^5.3.2"
   },
   "devDependencies": {
+    "@angular/build": "^21.2.24",
+    "@angular/cli": "^21.2.24",
+    "@angular/compiler-cli": "^21.2.24",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.19.0",
+    "@types/supertest": "^6.0.3",
+    "concurrently": "^9.2.1",
     "mongodb-memory-server": "^11.3.0",
-    "prettier": "^3.8.0",
-    "supertest": "^7.2.2"
+    "prettier": "^3.9.9",
+    "supertest": "^7.3.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.9.3"
   }
 }

@@ -16,6 +16,7 @@ pnpm-debug.log*
 # Test coverage and build output
 coverage/
 dist/
+.angular/
 
 # User-uploaded images
 uploads/
