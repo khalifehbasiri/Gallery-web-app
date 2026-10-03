@@ -8,17 +8,20 @@ import { clientDirectory, uploadsDirectory, type Config } from './config.js';
 import { HttpError } from './http.js';
 import { authenticate, authRoutes } from './auth.js';
 import { galleryRoutes } from './gallery.js';
+import { disabledCache, type DiscoveryCache } from './cache.js';
 
 export function createApp({
   config,
   uploadDirectory = uploadsDirectory,
   frontendDirectory = clientDirectory,
   rateLimitEnabled = true,
+  cache = disabledCache,
 }: {
   config: Config;
   uploadDirectory?: string;
   frontendDirectory?: string;
   rateLimitEnabled?: boolean;
+  cache?: DiscoveryCache;
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -49,10 +52,12 @@ export function createApp({
     }
     next();
   });
-  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/api/health', (_req, res) =>
+    res.json({ status: 'ok', redis: cache.status() }),
+  );
   app.use('/api', authenticate(config));
   app.use('/api/auth', authRoutes(config, rateLimitEnabled));
-  app.use('/api', galleryRoutes(uploadDirectory));
+  app.use('/api', galleryRoutes(uploadDirectory, cache));
   app.use('/api', (_req, _res) => {
     throw new HttpError(404, 'Endpoint not found.');
   });

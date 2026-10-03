@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createDiscoveryCache } from '../server/src/cache.js';
 
 if (process.env.NODE_ENV === 'production')
   throw new Error('The temporary demo cannot run in production.');
@@ -87,7 +88,9 @@ await Gallery.create(
 
 const uploads = await mkdtemp(path.join(os.tmpdir(), 'gallery-demo-'));
 const config = readConfig({ ...process.env, MONGODB_URI: mongo.getUri() });
-const server = createApp({ config, uploadDirectory: uploads }).listen(
+const cache = createDiscoveryCache(config);
+void cache.connect();
+const server = createApp({ config, cache, uploadDirectory: uploads }).listen(
   config.port,
   '127.0.0.1',
   () => {
@@ -98,6 +101,7 @@ const server = createApp({ config, uploadDirectory: uploads }).listen(
   },
 );
 async function cleanup() {
+  cache.close();
   await mongoose.disconnect();
   await mongo.stop();
   if (
@@ -112,10 +116,12 @@ server.on('error', async (error) => {
   await cleanup();
   process.exitCode = 1;
 });
-const stop = () =>
+const stop = () => {
+  cache.close();
   server.close(async () => {
     await cleanup();
     process.exit(0);
   });
+};
 process.once('SIGINT', stop);
 process.once('SIGTERM', stop);

@@ -23,6 +23,8 @@ import {
   type GalleryDocument,
 } from '../server/src/models.js';
 import type { ArtworkSummary, Review } from '../shared/contracts.js';
+import { RedisDiscoveryCache } from '../server/src/cache.js';
+import { FakeRedis } from './helpers/fake-redis.js';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5XcAAAAASUVORK5CYII=',
@@ -67,6 +69,17 @@ function uploadArt(
       filename: 'image.png',
       contentType: 'image/png',
     });
+}
+
+async function cachedTestApp() {
+  const redis = new FakeRedis();
+  const cache = new RedisDiscoveryCache(redis, 'api-tests', 60, () => {});
+  await cache.connect();
+  return {
+    redis,
+    cache,
+    app: createApp({ config, uploadDirectory, cache, rateLimitEnabled: false }),
+  };
 }
 
 describe('TypeScript REST API', { timeout: 180000 }, () => {
@@ -158,6 +171,217 @@ describe('TypeScript REST API', { timeout: 180000 }, () => {
       .get('/api/unknown')
       .expect(404)
       .expect('Content-Type', /json/);
+  });
+  it('caches public discovery without repeating MongoDB queries and validates filters before cache access', async (context) => {
+    const { app: cached, redis } = await cachedTestApp();
+    const counts = context.mock.method(Gallery, 'countDocuments');
+    const finds = context.mock.method(Gallery, 'find');
+    await request(cached)
+      .get('/api/stats')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    await request(cached)
+      .get('/api/stats')
+      .expect(200)
+      .expect('X-Cache', 'HIT');
+    assert.equal(counts.mock.callCount(), 1);
+    await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    await request(cached)
+      .get('/api/artworks?page=1&limit=12&search=')
+      .expect(200)
+      .expect('X-Cache', 'HIT');
+    assert.equal(finds.mock.callCount(), 1);
+    await request(cached)
+      .get('/api/artworks?category=digital')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    assert.equal(finds.mock.callCount(), 2);
+    const cacheReads = context.mock.method(redis, 'get');
+    await request(cached).get('/api/artworks?limit=500').expect(400);
+    await request(cached).get('/api/artworks?search[$ne]=anything').expect(400);
+    assert.equal(cacheReads.mock.callCount(), 0);
+    assert.equal(
+      (await request(cached).get('/api/health').expect(200)).body.redis,
+      'ready',
+    );
+  });
+  it('bypasses shared caching for signed-in users and keeps saved-work state private', async () => {
+    const { app: cached, redis } = await cachedTestApp();
+    await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    const signedIn = request.agent(cached);
+    await signedIn
+      .post('/api/auth/login')
+      .send({ username: 'Patron', password: 'password123' })
+      .expect(200);
+    await signedIn.put(`/api/artworks/${artwork.id}/like`).expect(200);
+    const personal = await signedIn
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'BYPASS')
+      .expect('Cache-Control', 'private, no-store');
+    assert.equal(personal.body.items[0].liked, true);
+    const publicResult = await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    assert.equal(publicResult.body.items[0].liked, false);
+    assert.equal(publicResult.body.items[0].likeCount, 1);
+    await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'HIT');
+    await signedIn.delete(`/api/artworks/${artwork.id}/like`).expect(200);
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/artworks')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.items[0].likeCount,
+      0,
+    );
+    for (const entry of redis.values.values())
+      assert.ok(!/Patron|password|gallery_token/.test(entry.value));
+    await signedIn.get('/api/account').expect(200);
+  });
+  it('refreshes discovery after reviews, uploads, role changes, and workshop creation', async () => {
+    const { app: cached } = await cachedTestApp();
+    const patronAgent = request.agent(cached);
+    const artistAgent = request.agent(cached);
+    await patronAgent
+      .post('/api/auth/login')
+      .send({ username: 'Patron', password: 'password123' })
+      .expect(200);
+    await artistAgent
+      .post('/api/auth/login')
+      .send({ username: 'Artist', password: 'password123' })
+      .expect(200);
+    await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    const review = await patronAgent
+      .post(`/api/artworks/${artwork.id}/reviews`)
+      .send({ text: 'A new perspective.' })
+      .expect(201);
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/artworks')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.items[0].reviewCount,
+      1,
+    );
+    await patronAgent
+      .delete(`/api/artworks/${artwork.id}/reviews/${review.body.id}`)
+      .expect(204);
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/artworks')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.items[0].reviewCount,
+      0,
+    );
+    await request(cached)
+      .get('/api/stats')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    await uploadArt(artistAgent).expect(201);
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/stats')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.artworks,
+      2,
+    );
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/artworks')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.total,
+      2,
+    );
+    await artistAgent
+      .post('/api/workshops')
+      .send({ name: 'Color workshop', goal: 'Learn color theory.', weeks: 2 })
+      .expect(201);
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/stats')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.workshops,
+      1,
+    );
+    await patronAgent
+      .patch('/api/account')
+      .send({ role: 'artist' })
+      .expect(200);
+    assert.equal(
+      (
+        await request(cached)
+          .get('/api/stats')
+          .expect(200)
+          .expect('X-Cache', 'MISS')
+      ).body.artists,
+      2,
+    );
+  });
+  it('keeps reads and mutations working through cache read/write failures', async () => {
+    const { app: cached, redis } = await cachedTestApp();
+    const signedIn = request.agent(cached);
+    await signedIn
+      .post('/api/auth/login')
+      .send({ username: 'Patron', password: 'password123' })
+      .expect(200);
+    await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'MISS');
+    redis.failWrites = true;
+    await signedIn.put(`/api/artworks/${artwork.id}/like`).expect(200);
+    const fresh = await request(cached)
+      .get('/api/artworks')
+      .expect(200)
+      .expect('X-Cache', 'BYPASS');
+    assert.equal(fresh.body.items[0].likeCount, 1);
+    assert.equal(
+      (await request(cached).get('/api/health').expect(200)).body.redis,
+      'unavailable',
+    );
+    await request(cached)
+      .get('/api/stats')
+      .expect(200)
+      .expect('X-Cache', 'BYPASS');
+    const { app: readFailure, redis: failingRedis } = await cachedTestApp();
+    failingRedis.failReads = true;
+    await request(readFailure)
+      .get('/api/stats')
+      .expect(200)
+      .expect('X-Cache', 'BYPASS');
+    assert.equal(
+      (
+        await request(readFailure)
+          .get('/api/artworks')
+          .expect(200)
+          .expect('X-Cache', 'BYPASS')
+      ).body.total,
+      1,
+    );
   });
   it('registers only allowed fields and never serializes passwords', async () => {
     const response = await request(app)

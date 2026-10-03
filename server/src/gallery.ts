@@ -29,6 +29,12 @@ import {
   reviewId,
   workshopId,
 } from './serializers.js';
+import { disabledCache, type DiscoveryCache } from './cache.js';
+import type {
+  GalleryStats,
+  Page,
+  ArtworkSummary,
+} from '../../shared/contracts.js';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -51,28 +57,39 @@ function imageExtension(buffer: Buffer): string {
   throw new HttpError(400, 'Upload a PNG, JPEG, GIF, or WebP image.');
 }
 
-export function galleryRoutes(uploadDirectory: string) {
+export function galleryRoutes(
+  uploadDirectory: string,
+  cache: DiscoveryCache = disabledCache,
+) {
   const router = Router();
   router.get('/stats', async (_req, res) => {
-    const [artworks, artists, workshopCounts, categories] = await Promise.all([
-      Gallery.countDocuments(),
-      User.countDocuments({ aType: 'artist' }),
-      User.aggregate<{ total: number }>([
-        {
-          $group: {
-            _id: null,
-            total: { $sum: { $size: { $ifNull: ['$workshops', []] } } },
-          },
-        },
-      ]),
-      Gallery.distinct('category'),
-    ]);
-    res.json({
-      artworks,
-      artists,
-      workshops: workshopCounts[0]?.total || 0,
-      categories: categories.sort(),
+    const result = await cache.remember<GalleryStats>('stats', async () => {
+      const [artworks, artists, workshopCounts, categories] = await Promise.all(
+        [
+          Gallery.countDocuments(),
+          User.countDocuments({ aType: 'artist' }),
+          User.aggregate<{ total: number }>([
+            {
+              $group: {
+                _id: null,
+                total: { $sum: { $size: { $ifNull: ['$workshops', []] } } },
+              },
+            },
+          ]),
+          Gallery.distinct('category'),
+        ],
+      );
+      return {
+        artworks,
+        artists,
+        workshops: workshopCounts[0]?.total || 0,
+        categories: categories.sort(),
+      };
     });
+    res
+      .set('X-Cache', result.status)
+      .set('Cache-Control', 'no-store')
+      .json(result.value);
   });
   router.get('/artworks', async (req, res) => {
     if (
@@ -90,17 +107,28 @@ export function galleryRoutes(uploadDirectory: string) {
     }
     if (req.query['search'] !== undefined && req.query['search'] !== '')
       filter.$text = { $search: textField(req.query, 'search', 120) };
-    const [items, total] = await Promise.all([
-      Gallery.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
-      Gallery.countDocuments(filter),
-    ]);
-    res.json({
-      items: items.map((art) => artworkSummary(art, req.user)),
-      total,
-      page,
-      limit,
-      pages: Math.ceil(total / limit),
-    });
+    const load = async (): Promise<Page<ArtworkSummary>> => {
+      const [items, total] = await Promise.all([
+        Gallery.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
+        Gallery.countDocuments(filter),
+      ]);
+      return {
+        items: items.map((art) => artworkSummary(art, req.user)),
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      };
+    };
+    // Personalized saved-work flags must never enter a shared response cache.
+    const result = await (req.user ? disabledCache : cache).remember(
+      `artworks:${JSON.stringify({ filter, page, limit })}`,
+      load,
+    );
+    res
+      .set('X-Cache', result.status)
+      .set('Cache-Control', req.user ? 'private, no-store' : 'no-store')
+      .json(result.value);
   });
   router.get('/artworks/:id', async (req, res) => {
     const art = requireDocument(
@@ -186,6 +214,7 @@ export function galleryRoutes(uploadDirectory: string) {
       ),
       'Account not found.',
     );
+    await cache.invalidate();
     res.json({ user: publicUser(user) });
   });
   router.put('/artists/:id/follow', requireAuth, async (req, res) => {
@@ -243,6 +272,7 @@ export function galleryRoutes(uploadDirectory: string) {
         await Gallery.findById(id),
         'Artwork not found.',
       );
+      if (result.modifiedCount) await cache.invalidate();
       res.json({ liked: liking, likeCount: updated.numLikes.length });
     });
   }
@@ -273,6 +303,7 @@ export function galleryRoutes(uploadDirectory: string) {
         },
       },
     );
+    await cache.invalidate();
     res.status(201).json(publicReview(entry, req.user));
   });
   router.delete(
@@ -302,6 +333,7 @@ export function galleryRoutes(uploadDirectory: string) {
         { _id: req.user!._id },
         { $pull: { reviews: { ...match, artId: id } } },
       );
+      await cache.invalidate();
       res.sendStatus(204);
     },
   );
@@ -332,6 +364,7 @@ export function galleryRoutes(uploadDirectory: string) {
           artist: req.user!.username,
           image: `/uploads/${filename}`,
         });
+        await cache.invalidate();
         res.status(201).json(publicArtwork(art, req.user));
       } catch (error) {
         await unlink(destination);
@@ -364,6 +397,7 @@ export function galleryRoutes(uploadDirectory: string) {
     );
     if (!result.modifiedCount)
       throw new HttpError(409, 'A workshop with that name already exists.');
+    await cache.invalidate();
     res.status(201).json(publicWorkshop(workshop, req.user!, req.user));
   });
   router.put(

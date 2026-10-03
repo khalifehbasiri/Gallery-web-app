@@ -18,6 +18,9 @@ export interface Config {
   production: boolean;
   trustProxy: boolean;
   clientOrigin: string;
+  redisUrl?: string;
+  redisCacheTtlSeconds: number;
+  redisKeyPrefix: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -30,6 +33,37 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const port = Number(env.PORT || 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('PORT must be an integer between 1 and 65535.');
+  const redisUrl = env.REDIS_URL?.trim() || undefined;
+  if (redisUrl) {
+    try {
+      const parsed = new URL(redisUrl);
+      if (
+        !['redis:', 'rediss:'].includes(parsed.protocol) ||
+        !parsed.hostname ||
+        parsed.search ||
+        parsed.hash
+      )
+        throw new Error();
+    } catch {
+      throw new Error(
+        'REDIS_URL must be a valid redis:// or rediss:// connection URL.',
+      );
+    }
+  }
+  const redisCacheTtlSeconds = Number(env.REDIS_CACHE_TTL_SECONDS || 60);
+  if (
+    !Number.isInteger(redisCacheTtlSeconds) ||
+    redisCacheTtlSeconds < 1 ||
+    redisCacheTtlSeconds > 3600
+  )
+    throw new Error(
+      'REDIS_CACHE_TTL_SECONDS must be an integer between 1 and 3600.',
+    );
+  const redisKeyPrefix = env.REDIS_KEY_PREFIX || 'gallery-web-app';
+  if (!/^[a-zA-Z0-9:_-]{1,64}$/.test(redisKeyPrefix))
+    throw new Error(
+      'REDIS_KEY_PREFIX must contain 1–64 letters, digits, colons, underscores, or hyphens.',
+    );
   return {
     port,
     mongoUri: env.MONGODB_URI || 'mongodb://127.0.0.1:27017/TP',
@@ -37,5 +71,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     production,
     trustProxy: env.TRUST_PROXY === '1',
     clientOrigin: env.CLIENT_ORIGIN || 'http://localhost:4200',
+    redisUrl,
+    redisCacheTtlSeconds,
+    redisKeyPrefix,
   };
 }
