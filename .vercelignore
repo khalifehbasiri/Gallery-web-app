@@ -1,0 +1,10 @@
+.env*
+.codex-local
+.firebase
+uploads
+exports
+test
+JSON
+supabase
+docs
+*.log

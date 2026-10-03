@@ -1,0 +1,11 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "artworks",
+      "fieldPath": "description",
+      "indexes": []
+    },
+    { "collectionGroup": "artworks", "fieldPath": "imageUrl", "indexes": [] }
+  ]
+}
