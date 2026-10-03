@@ -31,25 +31,23 @@ describe('Artwork review form', () => {
     const fixture = TestBed.createComponent(ArtworkComponent);
     fixture.componentRef.setInput('id', 'art');
     fixture.detectChanges();
-    http
-      .expectOne('/api/artworks/art')
-      .flush({
-        artist: null,
-        artwork: {
-          id: 'art',
-          title: 'Blue hour',
-          artist: 'Artist',
-          year: '2026',
-          category: 'Digital',
-          medium: 'Digital',
-          description: 'Blue.',
-          imageUrl: '/blue-hour.svg',
-          likeCount: 2,
-          reviewCount: 0,
-          liked: false,
-          reviews: [],
-        },
-      });
+    http.expectOne('/api/artworks/art').flush({
+      artist: null,
+      artwork: {
+        id: 'art',
+        title: 'Blue hour',
+        artist: 'Artist',
+        year: '2026',
+        category: 'Digital',
+        medium: 'Digital',
+        description: 'Blue.',
+        imageUrl: '/blue-hour.svg',
+        likeCount: 2,
+        reviewCount: 0,
+        liked: false,
+        reviews: [],
+      },
+    });
     await fixture.whenStable();
     fixture.detectChanges();
     const operation = fixture.componentInstance.like();

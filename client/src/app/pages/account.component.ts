@@ -176,13 +176,15 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
               >Host a workshop</a
             >
           }
-          <button
-            class="text-button"
-            [disabled]="busy()"
-            (click)="changeRole()"
-          >
-            {{ auth.isArtist() ? 'Switch to patron' : 'Become an artist ↗' }}
-          </button>
+          @if (!preferences()?.publicDemo) {
+            <button
+              class="text-button"
+              [disabled]="busy()"
+              (click)="changeRole()"
+            >
+              {{ auth.isArtist() ? 'Switch to patron' : 'Become an artist ↗' }}
+            </button>
+          }
         </div>
       </div>
       @if (account(); as data) {
