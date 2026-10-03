@@ -16,7 +16,9 @@
     "build:api": "tsc -p tsconfig.server.json",
     "build:client": "ng build",
     "seed": "node --env-file-if-exists=.env --import tsx server/src/seed.ts",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "npm run test:api && npm run test:client",
+    "test:api": "node --import tsx --test test/*.test.ts",
+    "test:client": "ng test --watch=false",
     "check": "tsc -p tsconfig.server.json --noEmit && ng build --configuration development",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -58,6 +60,8 @@
     "prettier": "^3.9.9",
     "supertest": "^7.3.1",
     "tsx": "^4.21.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.8",
+    "jsdom": "^26.1.0"
   }
 }
