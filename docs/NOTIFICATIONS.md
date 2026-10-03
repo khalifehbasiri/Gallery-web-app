@@ -6,7 +6,7 @@ Appreciation emails are opt-in. SQL is the durable source for both likes and del
 
 The code supports Resend delivery and a Render Free HTTP processor. Public sending remains disabled until a domain you own is verified and signed callbacks are configured. An Outlook/Gmail mailbox cannot verify the provider's domain. Resend's `onboarding@resend.dev` sender is restricted to the account owner's address; see [Resend's testing rules](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain).
 
-The deployed Redis → Render → Resend path passed a delivery-simulator test in one send attempt. Resend reported `delivered`, the owned SQL test fixture was removed, and the processor was returned to disabled delivery configuration. This checks the provider integration without claiming public sender setup is complete. [Resend's simulation addresses](https://resend.com/docs/dashboard/emails/send-test-emails) count against the sending quota.
+The deployed Redis → Render → Resend path passed a delivery-simulator test and one authorized account-owner inbox test, each in one send attempt. Resend reported `delivered` for the simulator and `opened` for the inbox test. Both temporary SQL test fixtures were removed, and the processor was returned to disabled delivery configuration. The owner's address remains private. This checks the provider integration without claiming public sender setup is complete. [Resend's simulation addresses](https://resend.com/docs/dashboard/emails/send-test-emails) count against the sending quota.
 
 Keep these values in ignored `.env` and provider secret settings:
 

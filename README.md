@@ -169,7 +169,7 @@ Render's always-on worker plans cost money. The approved $0 deployment uses a **
 
 **Sender setup:** the integration is implemented, but public sending is disabled until an owned domain is verified and the signed webhook is configured. An Outlook mailbox cannot be used as a Resend sender because Microsoft owns that domain. Owner-only tests can use `onboarding@resend.dev` and `RESEND_TEST_RECIPIENT`; they cannot send to other users. See [notification setup and operations](docs/NOTIFICATIONS.md).
 
-The deployed queue/processor/provider path was verified using Resend's delivery simulator: one attempt, a `delivered` event, and cleanup of the temporary fixture. The processor then returned to disabled delivery configuration. A real inbox test still requires the Resend account-owner address; public sending requires the owned-domain setup.
+The deployed queue/processor/provider path passed both Resend's delivery simulator and one authorized account-owner inbox test, each in one send attempt. Resend reported `delivered` for the simulator and `opened` for the inbox test. Temporary test accounts/jobs were removed, and the processor returned to disabled delivery configuration. The owner's address remains private; public sending still requires the owned-domain setup.
 
 ## Skills demonstrated against the role
 
