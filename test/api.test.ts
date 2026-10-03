@@ -281,6 +281,26 @@ describe('PostgreSQL API and cookie security', () => {
     ).rows;
     assert.ok(indexes.some((r) => r['indexname'] === 'artworks_search'));
   });
+  it('orders recent artwork by creation time rather than random IDs', async () => {
+    const rows = (
+      await sql.query('SELECT id FROM gallery.artworks ORDER BY id')
+    ).rows;
+    const first = String(rows[0]!['id']),
+      last = String(rows.at(-1)!['id']);
+    await sql.query(
+      "UPDATE gallery.artworks SET created_at=now()-interval '1 day'",
+    );
+    await sql.query(
+      'UPDATE gallery.artworks SET created_at=now() WHERE id=$1',
+      [first],
+    );
+    await cache.invalidate();
+    const response = await request(app)
+      .get('/api/artworks?limit=6')
+      .expect(200);
+    assert.equal(response.body.items[0].id, first);
+    assert.notEqual(response.body.items[0].id, last);
+  });
   it('caches public detail, comments, artists and workshops without leaking personal flags', async () => {
     const auth = await login();
     await mutate('put', `/api/artworks/${art}/like`, auth).expect(200);

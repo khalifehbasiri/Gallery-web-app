@@ -86,7 +86,7 @@ export function galleryRoutes(
       async () => {
         const rows = (
           await sql.query(
-            `${artSelect} WHERE ${where} ORDER BY a.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+            `${artSelect} WHERE ${where} ORDER BY a.created_at DESC,a.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
             [...values, limit, skip],
           )
         ).rows;
@@ -206,7 +206,7 @@ export function galleryRoutes(
       );
       const artworks = (
         await sql.query(
-          `${artSelect} WHERE a.artist_id=$1 AND a.status='published' ORDER BY a.id DESC LIMIT 48`,
+          `${artSelect} WHERE a.artist_id=$1 AND a.status='published' ORDER BY a.created_at DESC,a.id DESC LIMIT 48`,
           [id],
         )
       ).rows.map(summary);
@@ -277,7 +277,7 @@ export function galleryRoutes(
       sql,
       (
         await sql.query(
-          `${artSelect} WHERE a.artist_id=$1 AND a.status='published' ORDER BY a.id DESC LIMIT 48`,
+          `${artSelect} WHERE a.artist_id=$1 AND a.status='published' ORDER BY a.created_at DESC,a.id DESC LIMIT 48`,
           [id],
         )
       ).rows.map(summary),
