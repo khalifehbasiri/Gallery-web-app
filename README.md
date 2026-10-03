@@ -1,99 +1,120 @@
-# Gallery web app
+# Atelier — Gallery web app
 
-An Express/Pug app for browsing artwork, following artists, liking artwork, posting reviews, uploading images, and creating or joining workshops. MongoDB stores accounts, artwork, and sessions.
+A full-stack art community built with Angular 21, TypeScript, Node.js, Express 5, and MongoDB. Discover artwork, collect favorites, follow artists, post reviews, publish images, and create or join workshops.
 
-## Setup
+The original Pug application has been migrated to a standalone Angular client and a typed REST API. Existing MongoDB collections and uploaded images remain compatible.
 
-Requirements: Node.js 22.14 or newer, npm, and a running MongoDB server (local or hosted).
+![Atelier gallery preview with temporary demo data](docs/preview.png)
+
+## Run the portfolio demo
+
+Requirements: Node.js 22.14 or newer and npm. No separately installed MongoDB server is needed for the isolated demo.
 
 ```sh
 npm ci
+npm run build
+npm run demo
 ```
 
-Copy `.env.example` to `.env` and set `MONGODB_URI` and `SESSION_SECRET`. To generate a session secret:
+Open [http://localhost:3000](http://localhost:3000).
+
+| Account | Username       | Password            |
+| ------- | -------------- | ------------------- |
+| Patron  | `demo`         | `gallery-demo-2026` |
+| Artist  | `Maya Laurent` | `gallery-demo-2026` |
+
+The demo starts a temporary MongoDB process, creates sample artwork using bundled illustrations, and stores uploads in a temporary directory. It never connects to the database in `.env`. All demo changes disappear after shutdown. The first run may download a MongoDB binary. Stop with Ctrl+C.
+
+## Run with your MongoDB database
+
+Copy `.env.example` to `.env`, set `MONGODB_URI`, and generate a `JWT_SECRET`:
 
 ```sh
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-The default database is `mongodb://127.0.0.1:27017/TP`; the default port is `3000`. If `SESSION_SECRET` is omitted in development, the app generates a temporary secret and existing sessions become invalid after a restart. Production requires a configured secret.
+Use a running local or hosted MongoDB instance. The default database is `mongodb://127.0.0.1:27017/TP`.
 
-For a new development database, optionally add the demo data:
+```sh
+npm run dev
+```
+
+Open [http://localhost:4200](http://localhost:4200). Angular serves the client and proxies `/api` and `/uploads` to Express on port 3000. Both processes restart or reload as files change. If you change the API port, update `client/proxy.conf.json` accordingly.
+
+For the compiled application, Express serves both the API and Angular:
+
+```sh
+npm run build
+npm start
+```
+
+Open [http://localhost:3000](http://localhost:3000). Build before starting: compiled files are intentionally excluded from Git.
+
+### Optional original development fixtures
 
 ```sh
 npm run seed
 ```
 
-Seeding inserts missing accounts and artworks. Repeated runs preserve existing documents, passwords, reviews, likes, workshops, and sessions. It never drops the database and is disabled when `NODE_ENV=production`.
+Seeding inserts missing accounts and artwork from `JSON/`, preserving existing documents, passwords, reviews, likes, and workshops. It never drops the database and is disabled in production. The original fixture accounts remain `khalifa` / `yes` and each seeded artist's name / `no`; these weak credentials are for development only. New registrations require at least eight password characters. Some original artwork URLs may no longer resolve; the client displays an image placeholder.
 
-The original demo logins remain available: `khalifa` / `yes` for the patron account, and any seeded artist's name / `no` for an artist account. These are development fixtures with intentionally weak passwords. New registrations require at least eight characters.
+## What the project demonstrates
 
-Start the app:
+- **Angular + TypeScript:** standalone components, lazy routes, strict template checking, reactive forms, reusable cards, route guards, and responsive layouts.
+- **RxJS + NgRx SignalStore:** debounced, cancellable search with URL filters and pagination; shared authentication state restored from the API; explicit loading, empty, and error states.
+- **Node.js + Express REST API:** shared request/response contracts, field validation, consistent JSON errors, and role/ownership checks on server-side mutations.
+- **MongoDB + Mongoose:** compatible account/artwork models, weighted text search, category/artist indexes, database-side workshop pagination, atomic duplicate prevention, and TTL session expiry.
+- **Authentication:** salted scrypt password hashes, signed JWTs in HttpOnly cookies, revocable MongoDB auth sessions, login throttling, and browser-origin validation. No tokens are stored in localStorage.
+- **Verification:** isolated MongoDB integration tests, Angular HTTP/state/form tests, production builds, formatting checks, and browser verification of complete user flows.
 
-```sh
-npm start
-```
-
-Open [http://localhost:3000](http://localhost:3000). For automatic restarts while editing, use `npm run dev`.
+See [REST API](docs/API.md), [architecture](docs/ARCHITECTURE.md), and [change history](docs/CHANGELOG.md) for implementation details and an example resume description.
 
 ## Configuration
 
-| Variable         | Purpose                                                    | Default                               |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------- |
-| `MONGODB_URI`    | MongoDB connection string                                  | `mongodb://127.0.0.1:27017/TP`        |
-| `PORT`           | HTTP port                                                  | `3000`                                |
-| `SESSION_SECRET` | Signs session cookies                                      | Temporary random value in development |
-| `NODE_ENV`       | Set to `production` for secure cookies and required secret | Development behavior                  |
-| `TRUST_PROXY`    | Set to `1` behind one trusted reverse proxy                | `0`                                   |
+| Variable        | Purpose                                                   | Default                               |
+| --------------- | --------------------------------------------------------- | ------------------------------------- |
+| `MONGODB_URI`   | MongoDB connection string                                 | `mongodb://127.0.0.1:27017/TP`        |
+| `PORT`          | Express HTTP port                                         | `3000`                                |
+| `JWT_SECRET`    | JWT signing secret; at least 32 characters in production  | Temporary random value in development |
+| `CLIENT_ORIGIN` | Allowed browser origin for Angular development            | `http://localhost:4200`               |
+| `NODE_ENV`      | `production` enables secure cookies and requires a secret | Development behavior                  |
+| `TRUST_PROXY`   | `1` behind one trusted reverse proxy                      | `0`                                   |
 
-Production mode expects HTTPS, usually through a reverse proxy. Images are stored in `uploads/`; preserve that directory alongside your MongoDB backups. Uploads and local environment files are ignored by Git.
+Production expects HTTPS, usually through a reverse proxy. Preserve `uploads/` alongside MongoDB backups. `.env` and uploads are excluded from Git. `SESSION_SECRET` is accepted as a compatibility fallback, but new configuration should use `JWT_SECRET`. Without a persistent secret in development, a restart invalidates existing login tokens.
 
 ## Project structure
 
-- `server.js`: configuration, database/session-store setup, HTTP startup, and shutdown.
-- `app.js`: Express middleware, static files, routing, and centralized errors.
-- `routes/auth.js`: registration, login, legacy password upgrades, and logout.
-- `routes/gallery.js`: account, artwork, search, follows, likes, reviews, uploads, and workshops.
-- `lib/`: shared configuration, password hashing, and request validation.
-- `userModel.js` and `galleriesModel.js`: database schemas using the existing collections and embedded data structure.
-- `views/layout.pug` and `views/mixins/artwork.pug`: shared page layout and artwork/review controls.
-- `public/`: styles, shared fetch/error handling, gallery interactions, and form scripts.
-- `JSON/`: original demo artwork data.
-- `database-initializer.js`: repeatable, non-destructive demo seeding.
-- `test/`: integration tests using a separate temporary MongoDB instance and temporary upload directory.
+```text
+client/src/app/      Angular pages, shared components, API service, and stores
+client/public/      Local illustrations and favicon
+server/src/         Express app, authentication, routes, models, validation, seed
+shared/contracts.ts Types shared by the API and client
+test/               Backend integration tests
+scripts/demo.ts     Isolated portfolio demo
+docs/               API, architecture, and change documentation
+JSON/               Original development artwork fixtures
+```
 
 ## Checks
 
 ```sh
 npm test
 npm run check
+npm run build
 npm run format:check
-npm audit
+npm audit --omit=dev
 ```
 
-Tests cover account validation, password upgrades, login/logout with MongoDB-backed sessions, authentication and artist permissions, isolated searches, repeated/concurrent likes and follows, review ownership, image validation and upload cleanup, workshop signup, page rendering, static script references, and repeatable seeding. The first test run may download a MongoDB test binary. Tests do not connect to the database in your `.env` file.
+`npm test` runs API tests against a separate temporary MongoDB instance and then Angular tests using Vitest. Tests never connect to `.env` databases. `npm run check` checks backend TypeScript and builds the client with strict templates. `npm run build` produces the deployable server and client. `npm run format` applies Prettier.
 
-`npm run check` validates JavaScript syntax and compiles all Pug templates. `npm run format` formats JavaScript, CSS, Markdown, and configuration with Prettier. Pug templates and the original seed JSON are excluded from automatic formatting.
+Runtime dependencies passed `npm audit --omit=dev` with zero vulnerabilities at verification. The full audit reports nine high advisories in Angular CLI's development dependency chain, including `http-cache-semantics`; no patched release of that transitive package was available at verification. The current override updates Piscina to address a separate critical development advisory. Recheck the full audit as upstream fixes become available; forcing npm's suggested Angular CLI downgrade breaks the supported toolchain.
 
-## Cleanup details
+## Existing data and practical limits
 
-- Fixed the case-sensitive `UserModel.js` imports to use the actual `userModel.js` filename.
-- Removed unused `fs` and `path` npm packages in favor of Node built-ins, the direct MongoDB dependency in favor of Mongoose's ObjectId API, and unused Morgan logging.
-- Replaced `connect-mongodb-session` with `connect-mongo`, sharing the application's MongoDB connection. Updated Express, sessions, Mongoose, Multer, and Pug within their existing major versions and refreshed the lockfile.
-- Removed the duplicate `readme.txt` and unrelated, unused office-supply fixtures in `vendors/`.
-- Added Prettier, EditorConfig, and Git line-ending rules to keep future edits consistent across platforms.
-- Replaced shared global search results with validated search criteria stored per session.
-- Added explicit login and artist permission checks, allowed-field validation, missing-record responses, and centralized async error handling.
-- New passwords use salted scrypt hashes. Existing plain-text passwords are upgraded after a successful login. Passwords are excluded from normal queries and removed from the account page. Login regenerates the session; logout destroys it.
-- Registration defaults to a patron account and cannot inject follows, likes, workshops, or account type. Account-type switching uses the saved state rather than a client-supplied value.
-- Likes and follows use conditional atomic updates to prevent duplicate entries. Unlike only decreases the count when the user actually had a like. New follow/like records store only the fields needed by the UI.
-- New reviews have unique IDs. Removal checks the current author and artwork, including for older reviews without IDs.
-- Uploads require an artist account, are limited to 5 MB, check PNG/JPEG/GIF/WebP signatures, receive generated filenames with proper extensions, and are removed if saving the artwork fails.
-- Workshop creation validates its fields and initializes attendees on the server; repeated signups do not duplicate attendees.
-- Consolidated repeated browser requests and gallery actions, and reused one layout and artwork template across pages. Added input labels, mobile viewport metadata, image alt text, and a responsive container while retaining the original visual style.
+No live database rewrite is part of this migration. Plaintext legacy passwords are upgraded after successful login. Old review/workshop records without UUIDs receive stable IDs in API responses. Existing embedded follow/like snapshots are resolved to safe public fields. Historical counts and duplicate legacy data are not automatically repaired. Duplicate usernames require reconciliation before MongoDB can create the unique username index.
 
-## Existing-data considerations
+Users must sign in again after migration because old Express session cookies are replaced by JWT cookies. `auth_sessions` is a new collection for token revocation; expired records are removed by a TTL index and rejected immediately by authentication checks.
 
-The cleanup does not rewrite your live database. Legacy passwords are upgraded as users log in; old embedded follow/like snapshots and historical like counts remain as stored. If legacy duplicate usernames exist, they need reconciliation before the unique username index can be created.
+Likes and reviews still update user and artwork documents separately. A failed second write can leave the two records inconsistent; the current design does not claim multi-document transactions. Artist/account artwork lists show up to 48 items, while the main gallery and workshop lists are paginated. Upload validation checks file signatures and size, rather than decoding the entire image. These are documented follow-up areas for larger production workloads.
 
-Artwork likes and reviews still update both user and artwork documents separately, matching the original data structure. Database transactions and a normalized relationship model would be a further change for production workloads; an interrupted database write can still leave those two documents inconsistent. Image signature checks validate the file type, not the complete image contents.
+Docker, CI/CD, PostgreSQL, and OAuth integration are outside this project's current scope.

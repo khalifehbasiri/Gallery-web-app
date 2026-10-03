@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, describe, it } from 'node:test';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import mongoose from 'mongoose';
@@ -119,6 +119,45 @@ describe('TypeScript REST API', { timeout: 180000 }, () => {
       .expect(401);
     await request(app).post('/api/artworks').send({}).expect(401);
     await request(app).post('/api/workshops').send({}).expect(401);
+  });
+  it('serves Angular deep links while keeping missing assets and API endpoints as JSON 404s', async () => {
+    const frontendDirectory = path.join(uploadDirectory, 'frontend');
+    await mkdir(frontendDirectory, { recursive: true });
+    await writeFile(
+      path.join(frontendDirectory, 'index.html'),
+      '<!doctype html><app-root></app-root>',
+    );
+    await writeFile(
+      path.join(frontendDirectory, 'main.js'),
+      'console.log("Angular fixture")',
+    );
+    const spa = createApp({
+      config,
+      uploadDirectory,
+      frontendDirectory,
+      rateLimitEnabled: false,
+    });
+    const page = await request(spa)
+      .get('/artworks/a-deep-link')
+      .expect(200)
+      .expect('Content-Type', /html/);
+    assert.ok(page.text.includes('<app-root>'));
+    assert.equal(page.headers['cache-control'], 'no-cache');
+    assert.ok(
+      page.headers['content-security-policy'].includes("script-src 'self'"),
+    );
+    await request(spa)
+      .get('/main.js')
+      .expect(200)
+      .expect('Content-Type', /javascript/);
+    await request(spa)
+      .get('/missing.js')
+      .expect(404)
+      .expect('Content-Type', /json/);
+    await request(spa)
+      .get('/api/unknown')
+      .expect(404)
+      .expect('Content-Type', /json/);
   });
   it('registers only allowed fields and never serializes passwords', async () => {
     const response = await request(app)
@@ -440,6 +479,68 @@ describe('TypeScript REST API', { timeout: 180000 }, () => {
     await attendee
       .put(`/api/artists/${artist.id}/workshops/missing/registration`)
       .expect(404);
+  });
+  it('paginates workshops across artists with stable IDs and accurate totals', async () => {
+    await User.updateOne(
+      { _id: artist._id },
+      {
+        $set: {
+          workshops: [
+            {
+              workshopId: 'first',
+              name: 'First',
+              goal: 'Color',
+              duration: '2',
+              user: artist.username,
+              signed: [],
+            },
+            {
+              workshopId: 'second',
+              name: 'Second',
+              goal: 'Composition',
+              duration: '3',
+              user: artist.username,
+              signed: [],
+            },
+          ],
+        },
+      },
+    );
+    await User.updateOne(
+      { _id: patron._id },
+      {
+        $set: {
+          aType: 'artist',
+          workshops: [
+            {
+              workshopId: 'third',
+              name: 'Third',
+              goal: 'Drawing',
+              duration: '1',
+              user: patron.username,
+              signed: [],
+            },
+          ],
+        },
+      },
+    );
+    const seen = new Set<string>();
+    for (const page of [1, 2, 3]) {
+      const response = await request(app)
+        .get(`/api/workshops?page=${page}&limit=1`)
+        .expect(200);
+      assert.equal(response.body.total, 3);
+      assert.equal(response.body.pages, 3);
+      assert.equal(response.body.items.length, 1);
+      seen.add(response.body.items[0].id);
+    }
+    assert.equal(seen.size, 3);
+    assert.equal(
+      (await request(app).get('/api/workshops?page=4&limit=1').expect(200)).body
+        .items.length,
+      0,
+    );
+    await request(app).get('/api/workshops?limit=500').expect(400);
   });
   it('returns account data without nested legacy password snapshots', async () => {
     await User.updateOne(
