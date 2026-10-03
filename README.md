@@ -25,7 +25,11 @@ Open [localhost:3000](http://localhost:3000). No cloud credentials or external d
 | Patron  | demo         | gallery-demo-2026 |
 | Artist  | Maya Laurent | gallery-demo-2026 |
 
-These credentials exist only in the isolated demo. The cloud deployment has no seeded accounts with these passwords.
+These public credentials work in both the live app and the isolated demo. Shared accounts are for portfolio testing; do not put personal information into them.
+
+The hosted catalog was restored from the original `JSON/` fixtures: 24 artworks by 11 original artists, plus six labeled portfolio samples, the two demo accounts, and one workshop. Six original images were recovered into Supabase Storage. Eighteen unavailable images use sample illustrations with an image note in the artwork description. The old MongoDB server was unreachable, so former user activity was not recovered or invented.
+
+The repeatable operator seed is `node --env-file=.env --import tsx scripts/seed-hosted.ts` with an HTTPS `CLIENT_ORIGIN`. It keeps its prepared snapshot in ignored `exports/hosted-catalog.json`, preserves existing accounts and artwork, and never runs during deployment. Other artist accounts have unknown random passwords; only the two public demo passwords are published.
 
 ## Develop against the hosted services
 
@@ -73,7 +77,7 @@ The production dependency audit reports zero vulnerabilities. The full audit cur
 
 ## Data migration and operating limits
 
-MongoDB is now used only by the explicit legacy exporter, as a development dependency. Existing source data and `uploads/` are preserved. Migration requires a reachable legacy database and an operator-reviewed snapshot; the current cloud database starts empty. See [migration and rollback](docs/MIGRATION.md).
+MongoDB is now used only by the explicit legacy exporter, as a development dependency. Existing source data and `uploads/` are preserved. The hosted database is populated from the recovered catalog described above. Migrating additional original activity requires a reachable legacy database and an operator-reviewed snapshot. See [migration and rollback](docs/MIGRATION.md).
 
 This portfolio deployment uses free plans. Free quotas, cold starts, provider outages and inactive-project suspension still apply. Requests are bounded to avoid unnecessary database work; this is not an unlimited-capacity service. Monitor provider dashboards, run maintenance regularly, and keep manual backups. No paid upgrades, Google billing account, Docker or custom CI pipeline are configured.
 
