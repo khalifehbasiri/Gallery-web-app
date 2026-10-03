@@ -41,3 +41,16 @@ Public content may be cached for 60 seconds. Signed-in requests receive separate
 Image upload flow: reserve, PUT raw bytes to the returned signed Storage URL, then POST artwork metadata with uploadId. Allowed types: PNG/JPEG/GIF/WebP; maximum 5 MB. Publication returns 201; a completed retry with identical metadata returns 200 and the same artwork ID. Different retry metadata returns 409. Reservation expiry is 15 minutes; signed storage capabilities can outlive that, but publication cannot use an expired reservation. Consumed failed reservations require a fresh upload or operator reconciliation. Storage bytes are never multipart-posted through Vercel.
 
 API throttling returns 429; configured security-fence unavailability returns 503; validation 400; authentication 401; ownership/CSRF 403; missing records 404; identity conflicts 409. See [security](SECURITY.md) and [Redis](REDIS.md).
+
+# Email notifications
+
+All account routes require authentication and the usual CSRF proof for mutations:
+
+| Method | Path                        | Behavior                                                            |
+| ------ | --------------------------- | ------------------------------------------------------------------- |
+| GET    | `/api/notifications`        | Delivery availability and this account's email preferences.         |
+| POST   | `/api/notifications/email`  | `{email, consent:true}`; queue a rate-limited verification message. |
+| POST   | `/api/notifications/verify` | `{code}`; confirm address ownership and enable notices.             |
+| DELETE | `/api/notifications`        | Disable notices and invalidate outstanding verification.            |
+
+`GET/POST /api/notifications/unsubscribe` accepts a signed, version-bound opt-out capability; GET does not mutate. `POST /api/notifications/webhook` verifies the Resend/Svix signature over raw bytes instead of using browser CSRF. `GET /api/internal/notifications` requires `Authorization: Bearer <CRON_SECRET>` and wakes the processor only for due SQL jobs. The Render processor's `POST /jobs/process` requires its separate worker secret.

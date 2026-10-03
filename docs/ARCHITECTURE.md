@@ -40,3 +40,7 @@ Redis limits traffic to 120 API requests/minute per HMAC-hashed IP and 30 login/
 The credential-free demo uses PGlite, an in-memory document adapter and temporary uploads. API/migration tests exercise isolated PostgreSQL semantics. Production requires cloud configuration and never substitutes demo data.
 
 Mongoose remains only for read-only legacy export. [Migration](MIGRATION.md) preserves IDs, hashes credentials, normalizes relationships, copies assets and verifies records. It excludes bearer tokens/sessions and preserves the source. See [security](SECURITY.md), [Redis](REDIS.md) and [deployment](DEPLOYMENT.md).
+
+# Notification extension
+
+Like persistence remains synchronous and transactional. An eligible email event is inserted into the PostgreSQL outbox in that same transaction. Redis stores event UUID hints after commit; a Render Free HTTP processor leases SQL jobs, checks consent/suppression/budget and sends through Resend. No email or refresh secret is stored in Redis. The mail processor has a restricted SQL role and a separate payload-encryption key, and receives no JWT signing or artwork-storage secrets. See [notification design and operations](NOTIFICATIONS.md) and the expanded [README](../README.md).

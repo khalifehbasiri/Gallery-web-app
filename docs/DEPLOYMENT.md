@@ -2,13 +2,15 @@
 
 Live app: [gallery-web-app-two.vercel.app](https://gallery-web-app-two.vercel.app). Vercel assigned the `-two` alias because the shorter name was already occupied.
 
-| Resource | Configuration                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------- |
-| Vercel   | gallery-web-app, Angular CDN + Express function, Node 22.x, iad1                                        |
-| Firebase | gallery-web-app-kb-2026, Spark; native Standard Firestore `(default)`, Montreal northamerica-northeast1 |
-| Supabase | Gallery / obtatkjgfthiapdyczed, khalifehbasiri's Org, Free, ca-central-1                                |
-| Storage  | private gallery-images-pending; public gallery-images; 5 MB; raster types only                          |
-| Upstash  | Account-owned Free database claimed by the project owner; HTTP REST transport                           |
+| Resource | Configuration                                                                                                                                                              |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vercel   | gallery-web-app, Angular CDN + Express function, Node 22.x, iad1                                                                                                           |
+| Firebase | gallery-web-app-kb-2026, Spark; native Standard Firestore `(default)`, Montreal northamerica-northeast1                                                                    |
+| Supabase | Gallery / obtatkjgfthiapdyczed, khalifehbasiri's Org, Free, ca-central-1                                                                                                   |
+| Storage  | private gallery-images-pending; public gallery-images; 5 MB; raster types only                                                                                             |
+| Upstash  | Account-owned Free database claimed by the project owner; HTTP REST transport                                                                                              |
+| Render   | [gallery-notifications.onrender.com](https://gallery-notifications.onrender.com), Free HTTP processor in My Workspace; Node 22, Virginia; idle sleep and cold starts apply |
+| Resend   | Integration prepared; public sending awaits owned-domain verification and signed callback configuration                                                                    |
 
 No paid upgrade or Google billing account was attached. Free plans have quotas and suspension/cold-start behavior. Watch the provider dashboards; alerts are not spending caps. Do not enable Firebase Blaze, paid backups/PITR/TTL, Cloud Functions/App Hosting, paid Redis plans or Vercel add-ons without a separate budget decision. Vercel Hobby is for personal, noncommercial projects. Current limits and terms are in [Firebase pricing](https://firebase.google.com/pricing), [Supabase pricing](https://supabase.com/pricing), [Upstash pricing](https://upstash.com/pricing/redis) and [Vercel Hobby](https://vercel.com/docs/plans/hobby).
 
@@ -40,4 +42,6 @@ Check `/api/health`, `/api/stats`, paginated discovery, registration/login, dire
 
 For a pending publication: inspect its SQL row and Firestore document by ID. If both match and the image exists, complete publication and invalidate Redis. If the document/image is missing, repair from the retained snapshot or remove the pending registry and unreferenced resources. Stop writes during manual reconciliation. Security mutations must use the fenced protocol; see [Redis](REDIS.md). Preserve manual SQL/document/image exports before changes; no paid managed backups are enabled.
 
-The initial deployment was checked against all three hosted stores and real Redis. Temporary verification accounts, images and documents were removed afterward. Legacy MongoDB was unreachable, so no existing source records were migrated and the hosted gallery starts empty. [Migration](MIGRATION.md) is ready when that source becomes available.
+The initial deployment was checked against all three hosted stores and real Redis. Temporary verification accounts, images and documents were removed afterward. The gallery was subsequently populated with the original 24 artwork fixture records, six portfolio samples, 13 accounts and one workshop. Six original images were recovered; 18 fixture images have labeled substitutions. Legacy MongoDB was unreachable, so historical account activity could not be recovered. [Migration](MIGRATION.md) remains available for that source.
+
+Notification deployment uses [the separate processor and sender setup](NOTIFICATIONS.md). A free daily Vercel recovery check is configured for real due jobs; routine storage/security maintenance remains an operator command. Public demo account roles are fixed, and they cannot store personal email addresses or produce mail jobs.

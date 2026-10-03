@@ -60,3 +60,12 @@ This stage was committed before the architecture migration so the original clean
 - Replaced the temporary MongoDB demo with isolated PGlite, added exporter/asset preparation/import/verification and expiry maintenance commands.
 - Provisioned Gallery-only free cloud resources and deployed Angular/Express to Vercel; verified real registration, upload, Firestore writes, reviews/likes, workshops, refresh and revocation, then removed test fixtures.
 - Updated setup, architecture, security, API, migration/rollback and operating documentation. Existing source data and Git history remain intact.
+
+# Hosted catalog and asynchronous notifications — October 3, 2026
+
+- Restored 24 original catalog records and six original image files; 18 missing images have labeled sample substitutions. Added six portfolio samples, two public demo accounts and a workshop. The repeatable seed was run twice against the hosted stores.
+- Added an atomic SQL notification outbox, Redis UUID queue, leased Render Free HTTP processor, retries/dead letters, provider idempotency and app-level free-quota budgets.
+- Added opt-in verified email preferences, code/recipient rate limits, signed one-click opt-out, signed webhook suppression and shared-demo restrictions. Public delivery requires an owned verified domain; the supplied Outlook mailbox is not a verified sender.
+- Added optimistic likes with failure rollback, a once-daily authenticated recovery check, restricted processor credentials and notification maintenance.
+- Fixed creation-time sorting and aligned gallery indexes; added the missing token-denial foreign-key index. Verified the live Redis/Render/Resend delivery simulator and removed its temporary account.
+- Expanded README with architecture decisions, security tradeoffs, data ownership, free-tier limits and an evidence-based job-skill mapping.
