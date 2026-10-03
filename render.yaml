@@ -5,7 +5,7 @@ services:
     runtime: node
     plan: free
     region: virginia
-    buildCommand: npm ci && npm run build:api
+    buildCommand: npm ci --include=dev && npm run build:api
     startCommand: npm run worker
     healthCheckPath: /health
     envVars:
@@ -13,6 +13,8 @@ services:
         value: 22.14.0
       - key: NODE_ENV
         value: production
+      - key: NPM_CONFIG_INCLUDE
+        value: dev
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_CA_CERT
