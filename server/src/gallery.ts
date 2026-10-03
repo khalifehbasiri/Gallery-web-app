@@ -459,7 +459,7 @@ export function galleryRoutes(
     if (reservation['used_at']) {
       const existing = (
         await sql.query(
-          'SELECT status FROM gallery.artworks WHERE id=$1 AND artist_id=$2',
+          'SELECT status,like_count,review_count FROM gallery.artworks WHERE id=$1 AND artist_id=$2',
           [artworkId, req.user!.id],
         )
       ).rows[0];
@@ -483,16 +483,14 @@ export function galleryRoutes(
           409,
           'This upload has already published different artwork metadata.',
         );
-      res
-        .status(200)
-        .json({
-          ...doc,
-          artist: req.user!.username,
-          likeCount: 0,
-          reviewCount: 0,
-          liked: false,
-          reviews: [],
-        });
+      res.status(200).json({
+        ...doc,
+        artist: req.user!.username,
+        likeCount: Number(existing['like_count']),
+        reviewCount: Number(existing['review_count']),
+        liked: false,
+        reviews: [],
+      });
       return;
     }
     // Claim atomically. A consumed reservation cannot be reused in another publication.

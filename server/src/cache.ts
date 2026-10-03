@@ -55,6 +55,8 @@ export class RedisDiscoveryCache implements DiscoveryCache {
   private healthy = false;
   private warned = false;
   private closed = false;
+  private retryAfter = 0;
+  private recovery?: Promise<void>;
   private readyTask: Promise<void> = Promise.resolve();
   private readonly pending = new Map<string, Promise<unknown>>();
   private readonly generationKey: string;
@@ -97,6 +99,7 @@ export class RedisDiscoveryCache implements DiscoveryCache {
 
   private unavailable() {
     this.healthy = false;
+    this.retryAfter = Date.now() + 10000;
     if (!this.warned && !this.closed) {
       // Never log an error object or a connection URL containing credentials.
       this.warn(
@@ -129,6 +132,23 @@ export class RedisDiscoveryCache implements DiscoveryCache {
     resource: string,
     load: () => Promise<T>,
   ): Promise<{ value: T; status: CacheStatus }> {
+    if (
+      this.status() !== 'ready' &&
+      !this.closed &&
+      this.client.isReady &&
+      Date.now() >= this.retryAfter
+    ) {
+      this.recovery ??= this.resetGeneration()
+        .then(() => {
+          this.healthy = true;
+          this.warned = false;
+        })
+        .catch(() => this.unavailable())
+        .finally(() => {
+          this.recovery = undefined;
+        });
+      await this.recovery;
+    }
     if (this.status() !== 'ready')
       return disabledCache.remember(resource, load);
     let generation: string;
@@ -182,6 +202,8 @@ export class RedisDiscoveryCache implements DiscoveryCache {
     if (!this.client.isReady || this.closed) return;
     try {
       await this.resetGeneration();
+      this.healthy = true;
+      this.warned = false;
     } catch {
       this.unavailable();
     }

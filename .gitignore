@@ -36,5 +36,3 @@ firebase-debug.*
 *-service-account.json
 exports/
 supabase/.temp/
-
-.vercel

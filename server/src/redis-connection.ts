@@ -65,9 +65,10 @@ class RestRedis implements RedisConnection {
     ]);
   }
   async connect() {
-    await this.command(['PING'], 5000);
+    // HTTP has no persistent socket; later commands may recover after a failed initial probe.
     this.isOpen = true;
     this.isReady = true;
+    await this.command(['PING'], 5000);
     this.listeners['ready']?.forEach((l) => l());
   }
   destroy() {

@@ -220,6 +220,7 @@ export class ArtworkComponent {
       this.loading.set(true);
       this.error.set('');
       this.imageFailed.set(false);
+      this.reviewPage = 1;
       const request = this.api.artwork(id).subscribe({
         next: (detail) => {
           this.detail.set(detail);

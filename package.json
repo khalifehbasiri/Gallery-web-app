@@ -16,6 +16,7 @@
     "build:api": "tsc -p tsconfig.server.json",
     "build:client": "ng build",
     "migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts",
+    "maintenance": "node --env-file-if-exists=.env --import tsx scripts/maintenance.ts",
     "test": "npm run test:api && npm run test:client",
     "test:api": "node --import tsx --test test/*.test.ts",
     "test:client": "ng test --watch=false",
