@@ -4,7 +4,7 @@ All endpoints use JSON under `/api`, except multipart image uploads. Errors have
 
 | Method       | Endpoint                                          | Purpose                                       | Access               |
 | ------------ | ------------------------------------------------- | --------------------------------------------- | -------------------- |
-| GET          | `/health`                                         | Process health                                | Public               |
+| GET          | `/health`                                         | Process health and optional Redis state       | Public               |
 | GET          | `/stats`                                          | Artwork/artist/workshop counts and categories | Public               |
 | POST         | `/auth/register`                                  | Create a patron account                       | Public, rate limited |
 | POST         | `/auth/login`                                     | Sign in and set the authentication cookie     | Public, rate limited |
@@ -25,6 +25,10 @@ All endpoints use JSON under `/api`, except multipart image uploads. Errors have
 | PATCH        | `/account`                                        | Set `{ "role": "artist" }` or `"patron"`      | Signed in            |
 
 Artwork list parameters: `page` (1–10000), `limit` (1–48, default 12), `search` (MongoDB text search), `category` (exact match), and `artist` (exact username). Workshop lists accept `page` and `limit`. Pages return `{ items, total, page, limit, pages }`. Unknown artwork filters are rejected; strings are validated before reaching database queries.
+
+When Redis is enabled, `/stats` and anonymous `/artworks` responses use a shared cache with a default 60-second TTL. Their `X-Cache` header is `HIT`, `MISS`, or `BYPASS`. Signed-in artwork lists always bypass shared caching and use `Cache-Control: private, no-store`. Query validation happens before cache lookup. Relevant API writes invalidate discovery results before responding. Other endpoints are not cached.
+
+`/health` returns `{ "status": "ok", "redis": "disabled" | "ready" | "unavailable" }`. Redis is optional, so an unavailable cache does not change liveness to a failure. This endpoint does not check MongoDB readiness or reveal connection details. See [Redis configuration and consistency](REDIS.md).
 
 Registration/login accept `{ "username", "password" }`. Registration requires 8–256 password characters. Existing development seed passwords remain compatible. User responses expose only `id`, `username`, and `role`; tokens and password hashes never appear in response bodies.
 

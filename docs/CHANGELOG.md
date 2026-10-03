@@ -37,3 +37,13 @@ This stage was committed before the architecture migration so the original clean
 - Replaced the old setup guide with development, build, demo, and environment instructions.
 - Documented architecture, API behavior, resume wording, legacy-data compatibility, dependency advisories, and production limitations.
 - Verified automated tests, strict builds, formatting, runtime audit, and desktop/mobile browser behavior.
+
+## 5. Integrate Redis for public discovery
+
+- Added the official node-redis client with optional connection URL, configurable TTL, and namespaced keys.
+- Cached public statistics and anonymous artwork searches; signed-in responses bypass caching.
+- Added invalidation after likes, reviews, artwork publishing, account role changes, and workshop creation.
+- Protected invalidation against older in-flight reads with generation tokens and a conditional Lua write.
+- Added concurrent-miss coalescing, automatic expiry, Redis outage fallback, reconnect initialization, and shutdown cleanup.
+- Exposed cache status through API headers and health without revealing credentials.
+- Added API/cache regression coverage and an opt-in live Redis integration test, plus setup and consistency documentation.
