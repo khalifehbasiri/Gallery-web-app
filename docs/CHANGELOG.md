@@ -47,3 +47,16 @@ This stage was committed before the architecture migration so the original clean
 - Added concurrent-miss coalescing, automatic expiry, Redis outage fallback, reconnect initialization, and shutdown cleanup.
 - Exposed cache status through API headers and health without revealing credentials.
 - Added API/cache regression coverage and an opt-in live Redis integration test, plus setup and consistency documentation.
+
+## 6. Free-tier cloud persistence and security
+
+- Added normalized PostgreSQL tables, foreign keys, search/expiry indexes, RLS and a restricted TLS backend role.
+- Replaced live Mongoose persistence with native Firestore artwork documents and PostgreSQL search/publication projections.
+- Added independently random rotating refresh secrets, hashed storage, seven-day sliding/thirty-day absolute sessions, replay revocation, device controls and durable jti denial.
+- Adopted Strict HttpOnly cookies, signed session-bound CSRF, Origin/Fetch Metadata checks and static/API CSP.
+- Expanded public Redis caching to artwork detail, comment pages, artist summaries and workshops; personal flags remain separately queried.
+- Added distributed revocation fences and SQL fallback that resists cache eviction/stale fills; Redis REST transport suits Vercel.
+- Added private signed uploads and validated promotion to Supabase Storage with concurrency-safe quotas and completed-publication retries.
+- Replaced the temporary MongoDB demo with isolated PGlite, added exporter/asset preparation/import/verification and expiry maintenance commands.
+- Provisioned Gallery-only free cloud resources and deployed Angular/Express to Vercel; verified real registration, upload, Firestore writes, reviews/likes, workshops, refresh and revocation, then removed test fixtures.
+- Updated setup, architecture, security, API, migration/rollback and operating documentation. Existing source data and Git history remain intact.

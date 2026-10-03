@@ -1,68 +1,42 @@
 # Architecture
 
-## Request flow
+Angular and Express share a Vercel origin. Static assets use the CDN; `api/index.ts` reuses SDK clients and a one-connection PostgreSQL pool in each warm function. The local server uses the same Express app.
 
-```text
-Angular standalone pages
-  → reactive forms / NgRx SignalStore / RxJS
-  → typed HttpClient API service
-  → /api REST endpoints in Express
-  → validation + JWT/session authentication + role/ownership checks
-  → Mongoose models and MongoDB
-  → safe DTOs defined in shared/contracts.ts
+```mermaid
+flowchart LR
+  Browser[Angular / RxJS / NgRx] --> CDN[Vercel static assets]
+  Browser --> API[Express TypeScript API]
+  Browser -->|signed image PUT| Staging[Private Supabase staging]
+  API --> Redis[Upstash Redis]
+  API --> SQL[Supabase PostgreSQL]
+  API --> Docs[Firestore documents]
+  API --> Staging
+  API --> Images[Public Supabase images]
 ```
 
-Public discovery reads optionally pass through Redis before loading from MongoDB. Redis stores only serialized public DTOs; MongoDB remains the source of truth for all durable data and authentication.
+| Store                             | Authoritative records                                                                                                               |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Firestore Standard/native         | Artwork documents, including full descriptions                                                                                      |
+| PostgreSQL private gallery schema | Users, credentials, sessions, refresh digests, JWT denials, likes, follows, reviews, workshops, enrollments and upload reservations |
+| Supabase Storage                  | Image bytes                                                                                                                         |
+| Redis                             | Expiring public content and authorization proofs; never the durable source                                                          |
 
-During development, Angular's proxy forwards API and upload requests to Express. In a compiled build, Express serves Angular's static assets and falls back to `index.html` for client routes. Missing assets and unknown API paths remain JSON 404 responses. Deep links and page refreshes work without a second web server.
+PostgreSQL also stores an artwork search/publication projection: title, category, medium, year, a 280-character description preview, image reference, publication state, counters and a GIN-indexed full-text vector. Detail reads fetch Firestore by ID; search queries SQL rather than scanning document collections.
 
-## Frontend boundaries
+## Consistency and scaling
 
-`ApiService` owns HTTP requests and imports shared TypeScript contracts. `AuthStore` owns the current public user and computed signed-in/artist state. Startup waits for `/api/auth/me` before rendering guarded routes. Guards improve navigation; the backend independently checks every protected mutation.
+Likes/reviews lock the artwork row and update relationships/counters in one transaction. Unique composite keys make repeated likes, follows and enrollments safe. Personal liked/following/joined/owned flags are overlaid after loading public cache entries, using bounded SQL queries.
 
-`GalleryStore` is provided per gallery page. Its RxJS method debounces queries, cancels obsolete requests with `switchMap`, and catches errors inside the request stream so later searches still work. Query parameters preserve search/category/artist/page state across refresh and browser navigation. Authentication changes refresh personalized saved-work flags.
+Gallery/workshop/review pages accept at most 48 items and page 500. Account/artist sections cap at 48 entries; session lists at 100. Larger catalogs need cursor pagination and independently paginated account sections. Indexes cover foreign keys, recent lists, filters, reviews, text search and expiry cleanup. Transaction-pool connections use unnamed statements, five-second statement/connection timeouts and one socket per warm function.
 
-Pages use OnPush change detection and signals for local state. Routes load page components lazily. Reactive forms drive login, registration, reviews, publishing, and workshop creation. Shared artwork/workshop cards keep presentation and interactions consistent. Native labels, keyboard focus styles, a skip link, reduced-motion support, and responsive grids improve accessibility.
+Publication reserves SQL status `pending`, creates a Firestore document, then sets `published`. Pending rows are invisible publicly. Timed-out writes are reconciled before compensation; unresolved states preserve resources for operator repair. A completed publication can be retried with the same upload ID and metadata. Concurrent claims are atomic; failed consumed reservations require reconciliation or a new upload. There is no transaction spanning all three stores.
 
-Angular's production build keeps stylesheet minification but disables critical-CSS inlining: the generated inline `onload` handler otherwise conflicts with Helmet's script policy. This avoids weakening the Content Security Policy for the optimization.
+Images bypass Vercel's function request-size cap. Signed PUTs target a private bucket. Publication checks owner, expiry, exact bytes, MIME type and signature before promotion to an immutable public path. Limits are 5 MB/image and ten reservations/account per 15 minutes, enforced under a SQL lock.
 
-## Authentication and authorization
+Redis limits traffic to 120 API requests/minute per HMAC-hashed IP and 30 login/register/refresh attempts per 15 minutes. Local limits remain during Redis outages but are weaker across multiple instances. Provider quotas remain necessary; content-cache failure transfers work to database quotas. No plan upgrades occur automatically.
 
-Passwords are hashed with Node's scrypt using a random salt. Existing plaintext passwords are checked only for legacy compatibility and replaced with hashes on successful login.
+## Local adapters
 
-Login sets a 24-hour HS256 JWT with issuer, audience, subject, and a random session ID. The cookie is HttpOnly, SameSite=Lax, and Secure in production. Every authenticated request verifies both the JWT and its unexpired MongoDB session record. Logout revokes that record, so replaying the previous token fails even before its JWT expiry. Session records have a TTL index for cleanup.
+The credential-free demo uses PGlite, an in-memory document adapter and temporary uploads. API/migration tests exercise isolated PostgreSQL semantics. Production requires cloud configuration and never substitutes demo data.
 
-Registration accepts username/password only and creates a patron. Users may switch between patron and artist accounts as in the original application. Artist accounts can publish artwork and workshops. Review deletion is restricted to the original author. This is an art-community role model, not administrative approval or privileged enterprise access.
-
-Mutations validate browser origin and reject cross-site fetch metadata. Login/registration are rate limited. API serializers never return password hashes, tokens, or embedded legacy account snapshots.
-
-## MongoDB compatibility and query design
-
-The original account/artwork collections and embedded relationships are retained, avoiding a destructive data conversion. New reviews/workshops have UUIDs; legacy entries derive deterministic IDs for stable routes. Public DTOs separate the retained persistence shape from Angular's interface.
-
-- Artwork text search uses weighted name/artist/description fields.
-- Category and artist indexes include `_id` to support newest-first browsing.
-- Artwork queries use bounded page sizes and database-side filtering/counting.
-- Workshop lists use MongoDB unwind/sort/facet aggregation for pagination.
-- Conditional updates prevent repeated likes/follows; workshop registration uses `$addToSet`.
-- Username uniqueness and auth-session identity/expiry indexes support login integrity.
-
-Relationships updated in two collections remain susceptible to partial writes. A replica-set transaction strategy or normalized relationship collection would be the next step if the application required stronger consistency at scale.
-
-## Redis discovery cache
-
-`server/src/cache.ts` encapsulates node-redis behind the `DiscoveryCache` interface. The server and demo create one cache client and close it during shutdown. Redis is opt-in through `REDIS_URL`; startup does not wait for an unavailable optional cache.
-
-Statistics and anonymous artwork queries use cache-aside loading. Validated filters/page/limit form canonical keys, hashed under a versioned namespace that includes a fingerprint of the configured MongoDB URI. Signed-in artwork lists bypass the shared cache so saved-work flags cannot leak between accounts. Accounts, auth sessions, reviews, and workshop registrations remain uncached.
-
-Each namespace has a random generation token. Relevant API writes replace it before responding. A Lua script writes loaded data only if its captured generation is still current, preventing an older in-flight read from repopulating the active generation. Old data and generation keys expire automatically; there is no keyspace scan or shared-database flush. Concurrent misses within a process share the same loader for a generation/key pair.
-
-Connection/command deadlines, disabled offline queuing, and bounded warning output keep Redis failures from blocking MongoDB responses. Reconnection creates a fresh generation before caching resumes because MongoDB writes may have occurred during the outage. A partitioned writer can still leave another instance's cached data stale until TTL expiry; direct database edits and the seed CLI also rely on expiry. See [Redis setup and verification](REDIS.md) for operational details.
-
-## Resume wording
-
-Use wording that describes the implemented work and verification:
-
-> Modernized a legacy art-community app into an Angular and TypeScript frontend backed by Node.js, Express REST APIs, MongoDB, and Redis. Implemented NgRx SignalStore/RxJS search state, JWT authentication with server-side revocation, role-based publishing, validated image uploads, indexed search, and Redis caching with TTL expiry, write invalidation, and outage fallback. Added automated API, cache, and frontend tests.
-
-This project demonstrates the Angular/Express/MongoDB parts of the supplied job description. It does not demonstrate PostgreSQL, Docker, CI/CD, OAuth2, or a measured production scalability claim.
+Mongoose remains only for read-only legacy export. [Migration](MIGRATION.md) preserves IDs, hashes credentials, normalizes relationships, copies assets and verifies records. It excludes bearer tokens/sessions and preserves the source. See [security](SECURITY.md), [Redis](REDIS.md) and [deployment](DEPLOYMENT.md).

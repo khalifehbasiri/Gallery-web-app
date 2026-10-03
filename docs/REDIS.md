@@ -1,66 +1,29 @@
-# Redis setup and behavior
+# Redis caching and revocation
 
-## Connect a Redis server
+Production uses account-owned Upstash Free over REST. Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, or use `REDIS_URL` with `rediss://` for hosted TCP/TLS. Keep credentials in ignored files and server environment settings.
 
-Redis accelerates public discovery; it does not replace MongoDB. Use Redis 7.2 or newer with a running local server or a hosted Redis-compatible endpoint, following the client’s [supported versions](https://github.com/redis/node-redis#supported-redis-versions). Windows users can follow the [official Redis Windows installation guide](https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis/install-redis-on-windows/). This repository does not install a Redis server or require Docker.
+## Public content
 
-Copy `.env.example` to `.env` and configure:
+Cache statistics, filtered gallery pages, artwork details, public reviews, artist summaries and workshops. Public counts are cached; authoritative likes/comments remain in PostgreSQL. Signed-in requests reuse public entries, then overlay personal flags separately. Content entries contain no personalized response objects, passwords, raw JWTs or refresh secrets.
 
-```dotenv
-REDIS_URL=redis://127.0.0.1:6379
-REDIS_CACHE_TTL_SECONDS=60
-REDIS_KEY_PREFIX=gallery-web-app
-```
+Default expiry is 60 seconds, configurable from 1–3600. Namespaces use project identity and a key prefix; credentials can rotate without splitting revocation authority. Writes change a shared generation. Conditional Lua fills prevent an older read from repopulating the new generation. Identical misses coalesce within a process. Global invalidation trades some hit rate for simpler consistency; old entries expire naturally.
 
-Hosted Redis with TLS uses a URL such as `rediss://username:password@your-redis-host:6380/0`. URL-encode special characters in credentials. Keep connection URLs in the ignored `.env` file or your hosting environment; do not commit them. Then start the app with `npm run dev`, or `npm run build` followed by `npm start`.
+Public invalidation is best effort: other instances may serve stale counts until expiry when invalidation fails. Authorization checks remain independent. Outages, malformed entries and timeouts fall back to bounded database queries. Recovery resets the generation before reuse. HTTP recovery attempts are spaced ten seconds apart per process; successful write invalidation also restores readiness. TCP offline queues are disabled.
 
-A blank `REDIS_URL` disables caching. Invalid URLs, TTLs outside 1–3600 seconds, or invalid prefixes fail configuration validation with messages that do not echo credentials. The client uses normal TLS certificate validation for `rediss://` connections.
+`GET /api/health` returns Redis `ready`, `unavailable` or `disabled`; this is runtime liveness rather than a full dependency probe. Cached endpoints return `X-Cache: HIT`, `MISS` or `BYPASS`. Final API responses remain `private, no-store`.
 
-For the temporary portfolio demo, set `REDIS_URL` in your shell before `npm run demo`. The command does not read `.env`; it always overrides the MongoDB URI with its temporary database. Each temporary database receives an isolated Redis namespace, and all keys expire.
+## Authorization proofs
 
-## What is cached
+JWT signature, issuer, audience and expiry are verified on every request. Positive Redis proofs last at most 60 seconds, bounded further by JWT/session expiry. They contain a public user DTO and epoch; keys contain `jti`, never raw bearer secrets. SQL owns session validity and the `jti` denylist.
 
-| Endpoint                | Cached content                                                  | Behavior                |
-| ----------------------- | --------------------------------------------------------------- | ----------------------- |
-| `GET /api/stats`        | Public artwork/artist/workshop counts and categories            | Shared across visitors  |
-| `GET /api/artworks`     | Public DTO page for validated search/category/artist/page/limit | Anonymous visitors only |
-| Signed-in artwork lists | Personalized saved-work flags                                   | Always bypassed         |
-| Other endpoints         | Account, auth, detail, workshop, mutation data                  | Not cached              |
+Revocation, refresh and role changes acquire a shared fence **before** SQL writes. Cached proofs require the current epoch and no pending mutation. Releasing a fence rotates the epoch again. Successful logout/denial invalidates older proofs across instances; requests already authorized can finish.
 
-`X-Cache: MISS` means the public response was loaded from MongoDB for a cache miss. `HIT` means Redis supplied it. `BYPASS` means the cache was disabled, unavailable, or deliberately bypassed for a signed-in user. HTTP responses use `no-store`; Redis's application cache operates separately from browser caching.
+Evicted state creates a fresh epoch, rejecting surviving older proofs. Conditional fills reject stale SQL reads across mutations. Redis read failure falls back to SQL; unavailable SQL rejects authorization. Configured Redis write-fence failure returns 503 before changing security state. Failed release leaves readers on SQL, preserving correctness at a performance cost.
 
-## Check the connection
+A crashed mutation can leave a persistent pending fence. During a maintenance window, stop incoming requests, allow functions/transactions to finish, inspect SQL state, and reset only this project's security state to a **new random epoch**, removing confirmed abandoned fields. Never clear fences while mutations could run, restore old Redis snapshots, or manually edit SQL security state while cached proofs are active.
 
-```sh
-curl -i http://localhost:3000/api/health
-curl -i http://localhost:3000/api/stats
-curl -i http://localhost:3000/api/stats
-```
+## Quotas and tests
 
-In Windows PowerShell, use `curl.exe` to avoid the legacy `curl` alias. Health includes `redis: "ready"` after connection and initialization, `"disabled"` without a URL, or `"unavailable"` during an outage. Repeated requests should show `MISS` then `HIT`. No host, URL, credential, or cache key is exposed in health responses.
+One page view can consume multiple Redis commands: throttling, generation reads, lookup/fill and authorization checks. Command allowances are not page-view allowances. Monitor Redis and database usage; no unlimited-scale claim is made.
 
-The Redis user needs `GET`, `SET`, and `EVAL` access to the configured cache prefix, plus connection-handshake commands required by node-redis. An ACL or command error causes MongoDB fallback. Fix the Redis configuration and restart or reconnect the app if health remains unavailable.
-
-## Expiry, invalidation, and consistency
-
-Cached responses expire after the configured TTL. Generation tokens expire after twice that TTL so abandoned demo namespaces do not leave permanent keys. Keys include a schema version and a SHA-256 fingerprint of the configured MongoDB URI; filters are hashed rather than stored in key names. Application instances that share a database should use the same MongoDB URI and Redis prefix so they share invalidation.
-
-Successful likes/unlikes, review creation/deletion, artwork publishing, account role changes, and workshop creation invalidate public discovery before the API responds. A Lua script accepts a cache fill only when its original generation is still current, avoiding stale fills after a concurrent write. Entries in older generations expire naturally. No `KEYS`, `FLUSHDB`, or `FLUSHALL` commands are used.
-
-Redis errors are handled separately from database errors. The app falls back to MongoDB, disables offline command queuing, limits command waits to 500 ms and connection attempts to one second, and reconnects with bounded backoff. A reconnect replaces the generation before cache reads resume. Cache failures do not turn successful database mutations into HTTP failures. Shutdown destroys the optional Redis connection and cancels reconnect attempts.
-
-This is a best-effort cache, not a transactional consistency layer. A writer isolated from Redis cannot invalidate another server's cache immediately; TTL bounds that stale period. Direct MongoDB edits and CLI seeding also rely on TTL. Source queries started before a write may still return their original snapshot to that request, but cannot fill the new generation. No measured latency or scalability claim is implied by the integration.
-
-## Verification
-
-`npm test` covers cache hit/expiry, concurrent misses, cross-instance invalidation, in-flight races, malformed cached JSON, query validation, personalized-response isolation, relevant API writes, and read/write outages using a deterministic Redis test double. It also tests connection refusal and shutdown with the actual node-redis client. MongoDB integration tests remain isolated from your database.
-
-The real Redis test requires an explicit `TEST_REDIS_URL`. Add it to `.env` and run:
-
-```sh
-npm run test:redis
-```
-
-That command reads `.env`, exercises real cache hits, TTL expiry, invalidation, and Lua race protection, and writes only uniquely namespaced test keys that expire automatically. It never flushes the server. Without `TEST_REDIS_URL`, the test is explicitly skipped. No live Redis server was available during the initial integration, so the live-server test was not executed at that stage.
-
-Implementation references: [node-redis connection configuration](https://github.com/redis/node-redis/blob/master/docs/client-configuration.md), [Redis production usage](https://redis.io/docs/latest/develop/clients/nodejs/produsage/).
+Run `npm run test:redis` with a dedicated endpoint in ignored `.env.test`: `TEST_REDIS_URL`, or `TEST_UPSTASH_REDIS_REST_URL` and `TEST_UPSTASH_REDIS_REST_TOKEN`. Real-server tests cover expiry, invalidation, cross-instance fences, eviction and stale-fill races. Ordinary tests cover unavailable transports and durable fallback.

@@ -1,14 +1,16 @@
 # Atelier — Gallery web app
 
-A full-stack art community built with Angular 21, TypeScript, Node.js, Express 5, MongoDB, and optional Redis caching. Discover artwork, collect favorites, follow artists, post reviews, publish images, and create or join workshops.
+A full-stack art community built with Angular 21, TypeScript, RxJS, NgRx SignalStore, Node.js 22 and Express 5. Browse and search artwork, save favorites, follow artists, post reviews, publish images, and create or join workshops.
 
-The original Pug application has been migrated to a standalone Angular client and a typed REST API. Existing MongoDB collections and uploaded images remain compatible.
+**Live app:** [gallery-web-app-two.vercel.app](https://gallery-web-app-two.vercel.app)
 
-![Atelier gallery preview with temporary demo data](docs/preview.png)
+Firestore stores artwork documents. Supabase PostgreSQL stores accounts, relationships and security records; Supabase Storage serves validated images. Upstash Redis caches public data and accelerates durable authorization checks. Angular and Express share one origin on Vercel.
 
-## Run the portfolio demo
+![Atelier preview using isolated sample data](docs/preview.png)
 
-Requirements: Node.js 22.14 or newer and npm. No separately installed MongoDB server is needed for the isolated demo.
+## Run the isolated portfolio demo
+
+Use Node.js **22.14–22.x** and npm:
 
 ```sh
 npm ci
@@ -16,127 +18,63 @@ npm run build
 npm run demo
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [localhost:3000](http://localhost:3000). No cloud credentials or external database are required. PGlite runs PostgreSQL in memory; artwork documents use an in-memory adapter and uploads use a temporary directory. This command does not load `.env`. Stop with Ctrl+C; demo changes disappear.
 
-| Account | Username       | Password            |
-| ------- | -------------- | ------------------- |
-| Patron  | `demo`         | `gallery-demo-2026` |
-| Artist  | `Maya Laurent` | `gallery-demo-2026` |
+| Account | Username     | Password          |
+| ------- | ------------ | ----------------- |
+| Patron  | demo         | gallery-demo-2026 |
+| Artist  | Maya Laurent | gallery-demo-2026 |
 
-The demo starts a temporary MongoDB process, creates sample artwork using bundled illustrations, and stores uploads in a temporary directory. It never connects to the database in `.env`. All demo changes disappear after shutdown. The first run may download a MongoDB binary. Stop with Ctrl+C.
+These credentials exist only in the isolated demo. The cloud deployment has no seeded accounts with these passwords.
 
-## Run with your MongoDB database
+## Develop against the hosted services
 
-Copy `.env.example` to `.env`, set `MONGODB_URI`, and generate a `JWT_SECRET`:
+Copy `.env.example` to the ignored `.env` file and configure PostgreSQL, Firestore and Supabase Storage. Keep server credentials outside Angular and Git. Generate a persistent signing secret:
 
 ```sh
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-```
-
-Use a running local or hosted MongoDB instance. The default database is `mongodb://127.0.0.1:27017/TP`.
-
-```sh
 npm run dev
 ```
 
-Open [http://localhost:4200](http://localhost:4200). Angular serves the client and proxies `/api` and `/uploads` to Express on port 3000. Both processes restart or reload as files change. If you change the API port, update `client/proxy.conf.json` accordingly.
-
-For the compiled application, Express serves both the API and Angular:
-
-```sh
-npm run build
-npm start
-```
-
-Open [http://localhost:3000](http://localhost:3000). Build before starting: compiled files are intentionally excluded from Git.
-
-### Optional original development fixtures
-
-```sh
-npm run seed
-```
-
-Seeding inserts missing accounts and artwork from `JSON/`, preserving existing documents, passwords, reviews, likes, and workshops. It never drops the database and is disabled in production. The original fixture accounts remain `khalifa` / `yes` and each seeded artist's name / `no`; these weak credentials are for development only. New registrations require at least eight password characters. Some original artwork URLs may no longer resolve; the client displays an image placeholder.
+Angular runs at [localhost:4200](http://localhost:4200), proxying `/api` to Express on port 3000. Hosted development uses real data: use separate projects for destructive tests. For a compiled same-origin server, run `npm run build` followed by `npm start`.
 
 ## What the project demonstrates
 
-- **Angular + TypeScript:** standalone components, lazy routes, strict template checking, reactive forms, reusable cards, route guards, and responsive layouts.
-- **RxJS + NgRx SignalStore:** debounced, cancellable search with URL filters and pagination; shared authentication state restored from the API; explicit loading, empty, and error states.
-- **Node.js + Express REST API:** shared request/response contracts, field validation, consistent JSON errors, and role/ownership checks on server-side mutations.
-- **MongoDB + Mongoose:** compatible account/artwork models, weighted text search, category/artist indexes, database-side workshop pagination, atomic duplicate prevention, and TTL session expiry.
-- **Redis:** cache-aside public artwork discovery and statistics, TTL expiry, write invalidation, concurrent-request coalescing, safe MongoDB fallback, and connection recovery. Personalized responses bypass the shared cache.
-- **Authentication:** salted scrypt password hashes, signed JWTs in HttpOnly cookies, revocable MongoDB auth sessions, login throttling, and browser-origin validation. No tokens are stored in localStorage.
-- **Verification:** isolated MongoDB integration tests, Angular HTTP/state/form tests, production builds, formatting checks, and browser verification of complete user flows.
+- Angular standalone components, lazy routes, strict templates, reactive forms and responsive layouts.
+- RxJS search cancellation/debouncing and NgRx SignalStore authentication state.
+- A typed Express REST API with shared contracts, parameterized queries and ownership/role checks.
+- Normalized PostgreSQL relationships, foreign keys, transactional counters, GIN full-text search and a serverless transaction pool.
+- Firestore document persistence with a SQL publication registry and compensating writes across database boundaries.
+- Redis public caching, generation invalidation, concurrent-miss coalescing, distributed throttling and revocation fences.
+- Ten-minute JWTs and separate rotating opaque refresh secrets in Strict HttpOnly cookies; hashed refresh storage, CSRF proofs, replay detection and device/session revocation.
+- Direct signed image uploads with private staging, MIME/size/signature checks and a 5 MB limit.
+- Repeatable migration tooling, an isolated PostgreSQL demo, automated security tests and live cloud verification.
 
-See [REST API](docs/API.md), [architecture](docs/ARCHITECTURE.md), [Redis setup](docs/REDIS.md), and [change history](docs/CHANGELOG.md) for implementation details and an example resume description.
+Resume example: “Modernized a legacy gallery into an Angular/TypeScript and Express application, integrating PostgreSQL, Firestore and Redis with rotating refresh sessions, cache invalidation and validated direct image uploads; deployed on Vercel.”
 
-## Enable Redis
+## Configuration and checks
 
-Connect to a running local or hosted Redis server and set these values in `.env`:
+See [.env.example](.env.example) for all variables and [deployment](docs/DEPLOYMENT.md) for the existing cloud resources. Server configuration includes `DATABASE_URL`, the trusted `DATABASE_CA_CERT`, `FIREBASE_PROJECT_ID`, single-quoted serialized `FIREBASE_SERVICE_ACCOUNT_JSON`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a persistent `JWT_SECRET` of at least 32 random characters.
 
-```dotenv
-REDIS_URL=redis://127.0.0.1:6379
-REDIS_CACHE_TTL_SECONDS=60
-REDIS_KEY_PREFIX=gallery-web-app
-```
-
-Use a `rediss://` URL for TLS-enabled hosted Redis. Restart the server after changing configuration. Redis is optional: a blank URL disables caching, and an unavailable server causes reads to fall back to MongoDB. MongoDB continues to store all accounts, artwork, and auth sessions.
-
-`GET /api/health` reports Redis as `disabled`, `ready`, or `unavailable`. Statistics and artwork-list responses expose `X-Cache: MISS`, `HIT`, or `BYPASS`; repeated anonymous requests become hits until expiry or a relevant write. Signed-in artwork lists always bypass caching.
-
-The demo supports Redis through environment variables, for example `$env:REDIS_URL='redis://127.0.0.1:6379'` in PowerShell before `npm run demo`. Its temporary MongoDB URI gives it a separate cache namespace. The demo command does not automatically read `.env`.
-
-## Configuration
-
-| Variable                  | Purpose                                                       | Default                               |
-| ------------------------- | ------------------------------------------------------------- | ------------------------------------- |
-| `MONGODB_URI`             | MongoDB connection string                                     | `mongodb://127.0.0.1:27017/TP`        |
-| `PORT`                    | Express HTTP port                                             | `3000`                                |
-| `JWT_SECRET`              | JWT signing secret; at least 32 characters in production      | Temporary random value in development |
-| `CLIENT_ORIGIN`           | Allowed browser origin for Angular development                | `http://localhost:4200`               |
-| `NODE_ENV`                | `production` enables secure cookies and requires a secret     | Development behavior                  |
-| `TRUST_PROXY`             | `1` behind one trusted reverse proxy                          | `0`                                   |
-| `REDIS_URL`               | Optional Redis connection URL (`redis://` or `rediss://`)     | Disabled when blank                   |
-| `REDIS_CACHE_TTL_SECONDS` | Cache lifetime, integer from 1 to 3600 seconds                | `60`                                  |
-| `REDIS_KEY_PREFIX`        | Cache key prefix, 1–64 letters/digits/colon/underscore/hyphen | `gallery-web-app`                     |
-
-Production expects HTTPS, usually through a reverse proxy. Preserve `uploads/` alongside MongoDB backups. `.env` and uploads are excluded from Git. `SESSION_SECRET` is accepted as a compatibility fallback, but new configuration should use `JWT_SECRET`. Without a persistent secret in development, a restart invalidates existing login tokens.
-
-## Project structure
-
-```text
-client/src/app/      Angular pages, shared components, API service, and stores
-client/public/      Local illustrations and favicon
-server/src/         Express app, authentication, routes, models, validation, seed
-shared/contracts.ts Types shared by the API and client
-test/               Backend integration tests
-scripts/demo.ts     Isolated portfolio demo
-docs/               API, architecture, and change documentation
-JSON/               Original development artwork fixtures
-```
-
-## Checks
+Use both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, or `REDIS_URL` for TCP/TLS Redis. Redis is optional locally. With configured Redis unavailable, public reads fall back to the databases and authorization reads fall back to PostgreSQL. Revocation/refresh writes return 503 if their distributed fence cannot be acquired.
 
 ```sh
 npm test
-npm run check
 npm run build
 npm run format:check
 npm audit --omit=dev
+npm run test:redis
+npm run maintenance
 ```
 
-`npm test` runs API tests against a separate temporary MongoDB instance, cache tests with a deterministic Redis test double, and Angular tests using Vitest. These tests never connect to `.env` databases. A real Redis integration test runs only when `TEST_REDIS_URL` is explicitly provided; otherwise it is reported as skipped. `npm run check` checks backend TypeScript and builds the client with strict templates. `npm run build` produces the deployable server and client. `npm run format` applies Prettier.
+Live Redis tests require `TEST_REDIS_URL` or `TEST_UPSTASH_REDIS_REST_URL` and `TEST_UPSTASH_REDIS_REST_TOKEN` in ignored `.env.test`. Ordinary tests use isolated in-memory PostgreSQL and cache adapters. Maintenance removes expired security records and up to 100 expired unused uploads; it preserves ambiguous publications for reconciliation.
 
-To verify against your Redis server, set `TEST_REDIS_URL` in `.env` and run `npm run test:redis`. That command reads `.env`, uses unique expiring cache keys, and never flushes Redis. See [Redis verification](docs/REDIS.md#verification).
+The production dependency audit reports zero vulnerabilities. The full audit currently reports nine development dependency entries originating from one unpatched `http-cache-semantics` advisory in Angular CLI's package-fetching tools. Do not apply the audit's suggested Angular CLI 7 downgrade. See [the advisory](https://github.com/advisories/GHSA-ch52-4w7c-c8xp).
 
-Runtime dependencies passed `npm audit --omit=dev` with zero vulnerabilities at verification. The full audit reports nine high advisories in Angular CLI's development dependency chain, including `http-cache-semantics`; no patched release of that transitive package was available at verification. The current override updates Piscina to address a separate critical development advisory. Recheck the full audit as upstream fixes become available; forcing npm's suggested Angular CLI downgrade breaks the supported toolchain.
+## Data migration and operating limits
 
-## Existing data and practical limits
+MongoDB is now used only by the explicit legacy exporter, as a development dependency. Existing source data and `uploads/` are preserved. Migration requires a reachable legacy database and an operator-reviewed snapshot; the current cloud database starts empty. See [migration and rollback](docs/MIGRATION.md).
 
-No live database rewrite is part of this migration. Plaintext legacy passwords are upgraded after successful login. Old review/workshop records without UUIDs receive stable IDs in API responses. Existing embedded follow/like snapshots are resolved to safe public fields. Historical counts and duplicate legacy data are not automatically repaired. Duplicate usernames require reconciliation before MongoDB can create the unique username index.
+This portfolio deployment uses free plans. Free quotas, cold starts, provider outages and inactive-project suspension still apply. Requests are bounded to avoid unnecessary database work; this is not an unlimited-capacity service. Monitor provider dashboards, run maintenance regularly, and keep manual backups. No paid upgrades, Google billing account, Docker or custom CI pipeline are configured.
 
-Users must sign in again after migration because old Express session cookies are replaced by JWT cookies. `auth_sessions` is a new collection for token revocation; expired records are removed by a TTL index and rejected immediately by authentication checks.
-
-Likes and reviews still update user and artwork documents separately. A failed second write can leave the two records inconsistent; the current design does not claim multi-document transactions. Artist/account artwork lists show up to 48 items, while the main gallery and workshop lists are paginated. Upload validation checks file signatures and size, rather than decoding the entire image. These are documented follow-up areas for larger production workloads.
-
-Docker, CI/CD, PostgreSQL, and OAuth integration are outside this project's current scope.
+Read [architecture](docs/ARCHITECTURE.md), [API](docs/API.md), [security](docs/SECURITY.md), [Redis](docs/REDIS.md), [deployment](docs/DEPLOYMENT.md) and [change history](docs/CHANGELOG.md) for details.
