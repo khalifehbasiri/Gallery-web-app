@@ -29,3 +29,12 @@ uploads/
 # Operating system files
 .DS_Store
 Thumbs.db
+.vercel/
+.firebase/
+.codex-local/
+firebase-debug.*
+*-service-account.json
+exports/
+supabase/.temp/
+
+.vercel

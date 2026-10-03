@@ -5,3 +5,7 @@ coverage/
 JSON/
 .angular/
 dist/
+.codex-local/
+.firebase/
+.vercel/
+supabase/.temp/

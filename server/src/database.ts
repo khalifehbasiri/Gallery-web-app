@@ -9,7 +9,7 @@ export interface Sql {
   close(): Promise<void>;
 }
 
-export function postgres(url: string): Sql {
+export function postgres(url: string, ca?: string): Sql {
   // Supavisor transaction mode, unnamed queries, and one socket per warm function.
   const pool = new Pool({
     connectionString: url,
@@ -18,6 +18,7 @@ export function postgres(url: string): Sql {
     idleTimeoutMillis: 10000,
     statement_timeout: 5000,
     allowExitOnIdle: true,
+    ...(ca ? { ssl: { ca, rejectUnauthorized: true } } : {}),
   });
   pool.on('error', () => console.error('PostgreSQL connection unavailable.'));
   const root: Sql = {

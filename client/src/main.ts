@@ -1,5 +1,5 @@
 import { bootstrapApplication } from '@angular/platform-browser';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   provideRouter,
   withComponentInputBinding,
@@ -9,10 +9,11 @@ import { inject, provideAppInitializer } from '@angular/core';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { AuthStore } from './app/core/auth.store';
+import { sessionInterceptor } from './app/core/session.interceptor';
 
 bootstrapApplication(AppComponent, {
   providers: [
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([sessionInterceptor])),
     provideRouter(
       routes,
       withComponentInputBinding(),

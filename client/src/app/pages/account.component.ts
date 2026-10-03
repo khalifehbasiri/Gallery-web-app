@@ -4,7 +4,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Account, Workshop } from '../../../../shared/contracts';
 import { AuthStore } from '../core/auth.store';
@@ -31,6 +31,30 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
           auth.user()?.role === 'artist' ? 'Artist account' : 'Art enthusiast'
         }}</span>
       </div>
+      <div class="account-tools">
+        <div>
+          <h3>Active sessions</h3>
+          <p>Sign out a device if you lose access to it.</p>
+        </div>
+        <button class="text-button" [disabled]="busy()" (click)="logoutAll()">
+          Sign out all devices
+        </button>
+      </div>
+      @for (session of sessions(); track session.id) {
+        <div class="account-tools">
+          <p>
+            {{ session.current ? 'This browser' : 'Another browser' }} · Signed
+            in {{ session.createdAt.slice(0, 10) }}
+          </p>
+          <button
+            class="text-button"
+            [disabled]="busy()"
+            (click)="revoke(session.id, session.current)"
+          >
+            Sign out
+          </button>
+        </div>
+      }
       @if (error()) {
         <p class="error" role="alert">{{ error() }}</p>
       }
@@ -148,6 +172,10 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
 export class AccountComponent {
   readonly auth = inject(AuthStore);
   private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
+  readonly sessions = signal<
+    { id: string; createdAt: string; current: boolean }[]
+  >([]);
   readonly account = signal<Account | null>(null);
   readonly error = signal('');
   readonly busy = signal(false);
@@ -157,6 +185,7 @@ export class AccountComponent {
   private async load() {
     try {
       this.account.set(await firstValueFrom(this.api.account()));
+      this.sessions.set(await firstValueFrom(this.api.sessions()));
     } catch (error) {
       this.error.set(errorMessage(error));
     }
@@ -170,6 +199,33 @@ export class AccountComponent {
       );
       this.auth.setUser(user);
       await this.load();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async revoke(id: string, current: boolean) {
+    this.busy.set(true);
+    try {
+      await firstValueFrom(this.api.revokeSession(id));
+      if (current) {
+        this.auth.setUser(null);
+        await this.router.navigate(['/']);
+      } else
+        this.sessions.update((items) => items.filter((item) => item.id !== id));
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async logoutAll() {
+    this.busy.set(true);
+    try {
+      await firstValueFrom(this.api.logoutAll());
+      this.auth.setUser(null);
+      await this.router.navigate(['/']);
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {

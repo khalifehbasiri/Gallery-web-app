@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { from, switchMap } from 'rxjs';
 import type {
   Account,
   AccountRole,
@@ -47,6 +48,11 @@ export class ApiService {
   artwork(id: string) {
     return this.http.get<ArtworkDetail>(`/api/artworks/${id}`);
   }
+  reviews(id: string, page = 1) {
+    return this.http.get<Page<Review>>(`/api/artworks/${id}/reviews`, {
+      params: { page, limit: 12 },
+    });
+  }
   artist(id: string) {
     return this.http.get<Artist>(`/api/artists/${id}`);
   }
@@ -67,7 +73,55 @@ export class ApiService {
     return this.http.delete<void>(`/api/artworks/${id}/reviews/${reviewId}`);
   }
   createArtwork(body: FormData) {
-    return this.http.post<Artwork>('/api/artworks', body);
+    const image = body.get('image') as File;
+    return this.http
+      .post<{ id: string; url: string }>('/api/uploads', {
+        contentType: image.type,
+        bytes: image.size,
+      })
+      .pipe(
+        switchMap((upload) =>
+          from(
+            fetch(upload.url, {
+              method: 'PUT',
+              headers: { 'Content-Type': image.type, 'x-upsert': 'false' },
+              body: image,
+            }),
+          ).pipe(
+            switchMap((response) => {
+              if (!response.ok)
+                throw new Error('Image upload failed. Please try again.');
+              const fields: Record<string, string> = { uploadId: upload.id };
+              for (const key of [
+                'title',
+                'year',
+                'category',
+                'medium',
+                'description',
+              ])
+                fields[key] = String(body.get(key) || '');
+              return this.http.post<Artwork>('/api/artworks', fields);
+            }),
+          ),
+        ),
+      );
+  }
+  sessions() {
+    return this.http.get<
+      {
+        id: string;
+        createdAt: string;
+        idleExpiresAt: string;
+        absoluteExpiresAt: string;
+        current: boolean;
+      }[]
+    >('/api/auth/sessions');
+  }
+  revokeSession(id: string) {
+    return this.http.delete<void>(`/api/auth/sessions/${id}`);
+  }
+  logoutAll() {
+    return this.http.post<void>('/api/auth/logout-all', {});
   }
   workshops(page = 1) {
     return this.http.get<Page<Workshop>>('/api/workshops', {

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createClient } from 'redis';
+import { redisConnection, redisScope } from './redis-connection.js';
 import type { Config } from './config.js';
 
 export type CacheStatus = 'HIT' | 'MISS' | 'BYPASS';
@@ -68,7 +68,7 @@ export class RedisDiscoveryCache implements DiscoveryCache {
     this.generationKey = `${namespace}:generation`;
     client.on('error', () => this.unavailable());
     client.on('ready', () => {
-      // Drop pre-outage entries: writes may have succeeded in MongoDB while offline.
+      // Drop pre-outage entries: database writes may have succeeded while offline.
       this.readyTask = this.resetGeneration()
         .then(() => {
           if (!this.closed && client.isReady) {
@@ -99,7 +99,9 @@ export class RedisDiscoveryCache implements DiscoveryCache {
     this.healthy = false;
     if (!this.warned && !this.closed) {
       // Never log an error object or a connection URL containing credentials.
-      this.warn('Redis cache unavailable; continuing with MongoDB.');
+      this.warn(
+        'Redis content cache unavailable; continuing with the databases.',
+      );
       this.warned = true;
     }
   }
@@ -193,26 +195,13 @@ export class RedisDiscoveryCache implements DiscoveryCache {
 }
 
 export function createDiscoveryCache(config: Config): DiscoveryCache {
-  if (!config.redisUrl) return disabledCache;
-  const client = createClient({
-    url: config.redisUrl,
-    disableOfflineQueue: true,
-    commandsQueueMaxLength: 1000,
-    commandOptions: { timeout: 500 },
-    socket: {
-      connectTimeout: 1000,
-      reconnectStrategy: (retries) =>
-        Math.min(100 * 2 ** Math.min(retries, 5), 3000),
-    },
-  });
+  const client = redisConnection(config);
+  if (!client) return disabledCache;
   // Keep deployments and temporary demo databases apart on a shared Redis server.
-  const database = createHash('sha256')
-    .update(config.mongoUri)
-    .digest('hex')
-    .slice(0, 16);
+  const database = redisScope(config);
   return new RedisDiscoveryCache(
     client,
-    `${config.redisKeyPrefix}:v1:{${database}}`,
+    `${config.redisKeyPrefix}:v2:{${database}}`,
     config.redisCacheTtlSeconds,
   );
 }

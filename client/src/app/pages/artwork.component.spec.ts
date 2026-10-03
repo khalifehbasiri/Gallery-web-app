@@ -45,12 +45,27 @@ describe('Artwork review form', () => {
         likeCount: 0,
         reviewCount: 0,
         liked: false,
-        reviews: [],
+        reviews: [
+          {
+            id: 'legacy-xss',
+            author: 'Legacy <script>',
+            authorId: 'legacy',
+            owned: false,
+            text: "<script>alert(1)</script><img src=x onerror=alert(1)> javascript:alert(1) &#60;script&#62; O'Brien — مرحباً",
+          },
+        ],
       },
     };
     http.expectOne('/api/artworks/art').flush(detail);
     await fixture.whenStable();
     fixture.detectChanges();
+    expect(
+      fixture.nativeElement.querySelector('.review-entry').textContent,
+    ).toContain('<script>alert(1)</script>');
+    expect(
+      fixture.nativeElement.querySelector('.review-entry script'),
+    ).toBeNull();
+    expect(fixture.nativeElement.querySelector('.review-entry img')).toBeNull();
     const textarea = fixture.nativeElement.querySelector(
       'textarea',
     ) as HTMLTextAreaElement;
@@ -71,9 +86,9 @@ describe('Artwork review form', () => {
     });
     await fixture.whenStable();
     fixture.detectChanges();
-    expect(
-      fixture.nativeElement.querySelector('.review-entry')?.textContent,
-    ).toContain('A peaceful composition.');
+    expect(fixture.nativeElement.textContent).toContain(
+      'A peaceful composition.',
+    );
     expect(textarea.value).toBe('');
     expect(fixture.componentInstance.reviewBusy()).toBe(false);
   });

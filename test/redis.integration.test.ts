@@ -2,24 +2,30 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import { it } from 'node:test';
-import { createClient } from 'redis';
+import { redisConnection } from '../server/src/redis-connection.js';
+import { readConfig } from '../server/src/config.js';
 import { RedisDiscoveryCache } from '../server/src/cache.js';
 
 const url = process.env.TEST_REDIS_URL;
+const rest = process.env.TEST_UPSTASH_REDIS_REST_URL;
 it(
   'caches, expires, and invalidates results against a real Redis server',
   {
-    skip: !url && 'Set TEST_REDIS_URL to run the live Redis integration test.',
+    skip:
+      !url &&
+      !rest &&
+      'Configure a test Redis endpoint to run the live integration test.',
     timeout: 10000,
   },
   async () => {
     const namespace = `gallery-redis-test:{${randomUUID()}}`;
-    const client = createClient({
-      url,
-      disableOfflineQueue: true,
-      commandOptions: { timeout: 1000 },
-      socket: { connectTimeout: 1000, reconnectStrategy: false },
-    });
+    const client = redisConnection(
+      readConfig({
+        REDIS_URL: url,
+        UPSTASH_REDIS_REST_URL: rest,
+        UPSTASH_REDIS_REST_TOKEN: process.env.TEST_UPSTASH_REDIS_REST_TOKEN,
+      }),
+    )!;
     const cache = new RedisDiscoveryCache(client, namespace, 1, () => {});
     try {
       await cache.connect();

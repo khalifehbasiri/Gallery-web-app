@@ -96,10 +96,8 @@ import { errorMessage } from '../core/errors';
               <h2>A different <em>point of view.</em></h2>
             </div>
             <span
-              >{{ data.artwork.reviews.length }}
-              {{
-                data.artwork.reviews.length === 1 ? 'review' : 'reviews'
-              }}</span
+              >{{ data.artwork.reviewCount }}
+              {{ data.artwork.reviewCount === 1 ? 'review' : 'reviews' }}</span
             >
           </div>
           @if (auth.signedIn()) {
@@ -149,6 +147,15 @@ import { errorMessage } from '../core/errors';
               The conversation is open. Be the first to share a thought.
             </p>
           }
+          @if (data.artwork.reviews.length < data.artwork.reviewCount) {
+            <button
+              class="text-button"
+              [disabled]="reviewBusy()"
+              (click)="moreReviews()"
+            >
+              Load more reviews
+            </button>
+          }
         </section>
       }
     </section>
@@ -166,6 +173,40 @@ export class ArtworkComponent {
   readonly reviewBusy = signal(false);
   readonly removing = signal('');
   readonly imageFailed = signal(false);
+  private reviewPage = 1;
+  async moreReviews() {
+    if (this.reviewBusy()) return;
+    this.reviewBusy.set(true);
+    try {
+      const response = await firstValueFrom(
+        this.api.reviews(this.id(), this.reviewPage + 1),
+      );
+      this.reviewPage = response.page;
+      this.detail.update((data) =>
+        data
+          ? {
+              ...data,
+              artwork: {
+                ...data.artwork,
+                reviewCount: response.total,
+                reviews: [
+                  ...new Map(
+                    [...data.artwork.reviews, ...response.items].map((r) => [
+                      r.id,
+                      r,
+                    ]),
+                  ).values(),
+                ],
+              },
+            }
+          : data,
+      );
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.reviewBusy.set(false);
+    }
+  }
   readonly review = new FormControl('', {
     nonNullable: true,
     validators: [Validators.required, Validators.maxLength(2000)],
@@ -235,6 +276,7 @@ export class ArtworkComponent {
               artwork: {
                 ...data.artwork,
                 reviews: [...data.artwork.reviews, review],
+                reviewCount: data.artwork.reviewCount + 1,
               },
             }
           : data,
@@ -260,6 +302,7 @@ export class ArtworkComponent {
                 reviews: data.artwork.reviews.filter(
                   (entry) => entry.id !== review.id,
                 ),
+                reviewCount: data.artwork.reviewCount - 1,
               },
             }
           : data,

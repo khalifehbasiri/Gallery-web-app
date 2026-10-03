@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 import type { RequestHandler } from 'express';
 
 export class HttpError extends Error {
@@ -23,12 +22,16 @@ export function textField(
       400,
       `${field} is required and must be at most ${maxLength} characters.`,
     );
-  return value.trim();
+  const result = value.trim();
+  // Plain text, not executable HTML. Preserve punctuation/Unicode; reject control bytes.
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(result))
+    throw new HttpError(400, `${field} contains invalid control characters.`);
+  return result;
 }
-export function objectId(value: unknown): Types.ObjectId {
+export function objectId(value: unknown): string {
   if (typeof value !== 'string' || !/^[a-f0-9]{24}$/i.test(value))
     throw new HttpError(404, 'Unknown ID.');
-  return new Types.ObjectId(value);
+  return value;
 }
 export function requireDocument<T>(
   document: T,
@@ -44,19 +47,19 @@ export function pageParameters(query: Record<string, unknown>) {
   if (
     !Number.isInteger(page) ||
     page < 1 ||
-    page > 10000 ||
+    page > 500 ||
     !Number.isInteger(limit) ||
     limit < 1 ||
     limit > 48
   )
     throw new HttpError(
       400,
-      'Invalid pagination. Page must be 1–10000 and limit 1–48.',
+      'Invalid pagination. Page must be 1–500 and limit 1–48.',
     );
   return { page, limit, skip: (page - 1) * limit };
 }
 export const artistOnly: RequestHandler = (req, _res, next) => {
-  if (req.user?.aType !== 'artist')
+  if (req.user?.role !== 'artist')
     throw new HttpError(403, 'An artist account is required.');
   next();
 };

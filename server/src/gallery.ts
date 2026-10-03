@@ -1,15 +1,5 @@
 import { Router } from 'express';
-import { randomUUID } from 'node:crypto';
-import { writeFile, unlink } from 'node:fs/promises';
-import path from 'node:path';
-import multer from 'multer';
-import type { QueryFilter, Types } from 'mongoose';
-import {
-  Gallery,
-  User,
-  type GalleryRecord,
-  type EmbeddedWorkshop,
-} from './models.js';
+import { randomUUID, createHash } from 'node:crypto';
 import {
   HttpError,
   artistOnly,
@@ -19,363 +9,553 @@ import {
   textField,
 } from './http.js';
 import { requireAuth } from './auth.js';
+import { publicUser, userDto, type ArtworkStore } from './domain.js';
 import {
-  artworkSummary,
-  publicArtist,
-  publicArtwork,
-  publicReview,
-  publicUser,
-  publicWorkshop,
-  reviewId,
-  workshopId,
-} from './serializers.js';
-import { disabledCache, type DiscoveryCache } from './cache.js';
-import type {
-  GalleryStats,
-  Page,
-  ArtworkSummary,
-} from '../../shared/contracts.js';
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 5, fieldSize: 10000 },
-});
-function imageExtension(buffer: Buffer): string {
-  if (
-    buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-  )
-    return '.png';
-  if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255)
-    return '.jpg';
-  if (['GIF87a', 'GIF89a'].includes(buffer.toString('ascii', 0, 6)))
-    return '.gif';
-  if (
-    buffer.toString('ascii', 0, 4) === 'RIFF' &&
-    buffer.toString('ascii', 8, 12) === 'WEBP'
-  )
-    return '.webp';
-  throw new HttpError(400, 'Upload a PNG, JPEG, GIF, or WebP image.');
-}
-
+  artSelect,
+  workshopSelect,
+  summary,
+  workshop,
+  review,
+  liked,
+  joined,
+  published,
+  publish,
+} from './catalog.js';
+import { reserveUpload, type ImageStorage } from './storage.js';
+import type { Sql } from './database.js';
+import type { DiscoveryCache } from './cache.js';
+import type { SecurityCache } from './security-cache.js';
 export function galleryRoutes(
-  uploadDirectory: string,
-  cache: DiscoveryCache = disabledCache,
+  sql: Sql,
+  store: ArtworkStore,
+  storage: ImageStorage,
+  cache: DiscoveryCache,
+  security: SecurityCache,
 ) {
   const router = Router();
   router.get('/stats', async (_req, res) => {
-    const result = await cache.remember<GalleryStats>('stats', async () => {
-      const [artworks, artists, workshopCounts, categories] = await Promise.all(
-        [
-          Gallery.countDocuments(),
-          User.countDocuments({ aType: 'artist' }),
-          User.aggregate<{ total: number }>([
-            {
-              $group: {
-                _id: null,
-                total: { $sum: { $size: { $ifNull: ['$workshops', []] } } },
-              },
-            },
-          ]),
-          Gallery.distinct('category'),
-        ],
-      );
+    const result = await cache.remember('stats', async () => {
+      const r = (
+        await sql.query(`SELECT (SELECT count(*)::int FROM gallery.artworks WHERE status='published') AS artworks,
+        (SELECT count(*)::int FROM gallery.users WHERE role='artist') AS artists,(SELECT count(*)::int FROM gallery.workshops) AS workshops`)
+      ).rows[0]!;
+      const categories = (
+        await sql.query(
+          "SELECT DISTINCT category FROM gallery.artworks WHERE status='published' ORDER BY category",
+        )
+      ).rows.map((i) => String(i['category']));
       return {
-        artworks,
-        artists,
-        workshops: workshopCounts[0]?.total || 0,
-        categories: categories.sort(),
+        artworks: Number(r['artworks']),
+        artists: Number(r['artists']),
+        workshops: Number(r['workshops']),
+        categories,
       };
     });
-    res
-      .set('X-Cache', result.status)
-      .set('Cache-Control', 'no-store')
-      .json(result.value);
+    res.set('X-Cache', result.status).json(result.value);
   });
   router.get('/artworks', async (req, res) => {
     if (
       Object.keys(req.query).some(
-        (key) =>
-          !['page', 'limit', 'search', 'category', 'artist'].includes(key),
+        (k) => !['page', 'limit', 'search', 'category', 'artist'].includes(k),
       )
     )
       throw new HttpError(400, 'Unknown artwork filter.');
     const { page, limit, skip } = pageParameters(req.query);
-    const filter: QueryFilter<GalleryRecord> = {};
-    for (const field of ['category', 'artist'] as const) {
-      if (req.query[field] !== undefined && req.query[field] !== '')
-        filter[field] = textField(req.query, field);
-    }
-    if (req.query['search'] !== undefined && req.query['search'] !== '')
-      filter.$text = { $search: textField(req.query, 'search', 120) };
-    const load = async (): Promise<Page<ArtworkSummary>> => {
-      const [items, total] = await Promise.all([
-        Gallery.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
-        Gallery.countDocuments(filter),
-      ]);
-      return {
-        items: items.map((art) => artworkSummary(art, req.user)),
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit),
-      };
-    };
-    // Personalized saved-work flags must never enter a shared response cache.
-    const result = await (req.user ? disabledCache : cache).remember(
-      `artworks:${JSON.stringify({ filter, page, limit })}`,
-      load,
+    const values: unknown[] = [],
+      clauses = ["a.status='published'"];
+    for (const field of ['category', 'artist', 'search'] as const)
+      if (req.query[field] !== undefined && req.query[field] !== '') {
+        values.push(
+          textField(req.query, field, field === 'search' ? 120 : 200),
+        );
+        clauses.push(
+          field === 'search'
+            ? `a.search_document @@ websearch_to_tsquery('english',$${values.length})`
+            : `${field === 'artist' ? 'u.username' : 'a.category'}=$${values.length}`,
+        );
+      }
+    const where = clauses.join(' AND ');
+    const result = await cache.remember(
+      `artworks:${JSON.stringify({ values, page, limit })}`,
+      async () => {
+        const rows = (
+          await sql.query(
+            `${artSelect} WHERE ${where} ORDER BY a.id DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+            [...values, limit, skip],
+          )
+        ).rows;
+        const total = Number(
+          (
+            await sql.query(
+              `SELECT count(*)::int AS total FROM gallery.artworks a JOIN gallery.users u ON u.id=a.artist_id WHERE ${where}`,
+              values,
+            )
+          ).rows[0]!['total'],
+        );
+        return {
+          items: rows.map(summary),
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        };
+      },
     );
-    res
-      .set('X-Cache', result.status)
-      .set('Cache-Control', req.user ? 'private, no-store' : 'no-store')
-      .json(result.value);
+    res.set('X-Cache', result.status).json({
+      ...result.value,
+      items: await liked(sql, result.value.items, req.user?.id),
+    });
+  });
+  const loadReviews = async (id: string, limit: number, skip: number) =>
+    (
+      await sql.query(
+        `SELECT r.*,u.username FROM gallery.reviews r JOIN gallery.users u ON u.id=r.user_id WHERE artwork_id=$1 ORDER BY r.created_at DESC,r.id DESC LIMIT $2 OFFSET $3`,
+        [id, limit, skip],
+      )
+    ).rows.map(review);
+  router.get('/artworks/:id/reviews', async (req, res) => {
+    const id = objectId(req.params['id']),
+      { page, limit, skip } = pageParameters(req.query);
+    const result = await cache.remember(
+      `reviews:${id}:${page}:${limit}`,
+      async () => {
+        const art = await published(sql, id),
+          total = Number(art['review_count']);
+        return {
+          items: await loadReviews(id, limit, skip),
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        };
+      },
+    );
+    res.set('X-Cache', result.status).json({
+      ...result.value,
+      items: result.value.items.map((r) => ({
+        ...r,
+        owned: r.authorId === req.user?.id,
+      })),
+    });
   });
   router.get('/artworks/:id', async (req, res) => {
-    const art = requireDocument(
-      await Gallery.findById(objectId(req.params['id'])),
-      'Artwork not found.',
-    );
-    const artist = await User.findOne({ username: art.artist });
-    res.json({
-      artwork: publicArtwork(art, req.user),
-      artist: artist ? publicUser(artist) : null,
+    const id = objectId(req.params['id']);
+    const result = await cache.remember(`artwork:${id}`, async () => {
+      const row = requireDocument(
+        (
+          await sql.query(
+            `${artSelect} WHERE a.id=$1 AND a.status='published'`,
+            [id],
+          )
+        ).rows[0],
+        'Artwork not found.',
+      );
+      const doc = requireDocument(await store.get(id), 'Artwork not found.');
+      const artist = publicUser(
+        userDto(
+          (
+            await sql.query(
+              'SELECT id,username,role FROM gallery.users WHERE id=$1',
+              [row['artist_id']],
+            )
+          ).rows[0]!,
+        ),
+      );
+      return {
+        artwork: {
+          ...summary(row),
+          description: doc.description,
+          reviews: await loadReviews(id, 12, 0),
+        },
+        artist,
+      };
+    });
+    const [art] = await liked(sql, [result.value.artwork], req.user?.id);
+    res.set('X-Cache', result.status).json({
+      artist: result.value.artist,
+      artwork: {
+        ...art,
+        reviews: result.value.artwork.reviews.map((r) => ({
+          ...r,
+          owned: r.authorId === req.user?.id,
+        })),
+      },
     });
   });
   router.get('/artists/:id', async (req, res) => {
-    const artist = requireDocument(
-      await User.findById(objectId(req.params['id'])),
-      'Artist not found.',
-    );
-    const artworks = await Gallery.find({ artist: artist.username })
-      .sort({ _id: -1 })
-      .limit(48);
-    res.json(publicArtist(artist, artworks, req.user));
+    const id = objectId(req.params['id']);
+    const result = await cache.remember(`artist:${id}`, async () => {
+      const user = publicUser(
+        userDto(
+          requireDocument(
+            (
+              await sql.query(
+                'SELECT id,username,role FROM gallery.users WHERE id=$1',
+                [id],
+              )
+            ).rows[0],
+            'Artist not found.',
+          ),
+        ),
+      );
+      const artworks = (
+        await sql.query(
+          `${artSelect} WHERE a.artist_id=$1 AND a.status='published' ORDER BY a.id DESC LIMIT 48`,
+          [id],
+        )
+      ).rows.map(summary);
+      const workshops = (
+        await sql.query(
+          `${workshopSelect} WHERE w.artist_id=$1 ORDER BY w.id DESC LIMIT 48`,
+          [id],
+        )
+      ).rows.map(workshop);
+      return { ...user, artworks, workshops };
+    });
+    const following = req.user
+      ? (
+          await sql.query(
+            'SELECT 1 FROM gallery.follows WHERE user_id=$1 AND artist_id=$2',
+            [req.user.id, id],
+          )
+        ).rows.length > 0
+      : false;
+    res.set('X-Cache', result.status).json({
+      ...result.value,
+      following,
+      artworks: await liked(sql, result.value.artworks, req.user?.id),
+      workshops: await joined(sql, result.value.workshops, req.user?.id),
+    });
   });
   router.get('/workshops', async (req, res) => {
     const { page, limit, skip } = pageParameters(req.query);
-    const [result] = await User.aggregate<{
-      items: {
-        _id: Types.ObjectId;
-        username: string;
-        workshops: EmbeddedWorkshop;
-      }[];
-      count: { total: number }[];
-    }>([
-      { $match: { 'workshops.0': { $exists: true } } },
-      { $unwind: '$workshops' },
-      { $sort: { _id: -1, 'workshops.name': 1 } },
-      {
-        $facet: {
-          items: [
-            { $skip: skip },
-            { $limit: limit },
-            { $project: { username: 1, workshops: 1 } },
-          ],
-          count: [{ $count: 'total' }],
-        },
+    const result = await cache.remember(
+      `workshops:${page}:${limit}`,
+      async () => {
+        const items = (
+          await sql.query(
+            `${workshopSelect} ORDER BY w.created_at DESC,w.id DESC LIMIT $1 OFFSET $2`,
+            [limit, skip],
+          )
+        ).rows.map(workshop);
+        const total = Number(
+          (
+            await sql.query(
+              'SELECT count(*)::int AS total FROM gallery.workshops',
+            )
+          ).rows[0]!['total'],
+        );
+        return { items, total, page, limit, pages: Math.ceil(total / limit) };
       },
-    ]);
-    const total = result?.count[0]?.total || 0;
-    const items = (result?.items || []).map((entry) =>
-      publicWorkshop(entry.workshops, entry, req.user),
     );
-    res.json({ items, total, page, limit, pages: Math.ceil(total / limit) });
+    res.set('X-Cache', result.status).json({
+      ...result.value,
+      items: await joined(sql, result.value.items, req.user?.id),
+    });
   });
   router.get('/account', requireAuth, async (req, res) => {
-    const user = req.user!;
-    const [following, likes, artworks] = await Promise.all([
-      User.find({ _id: { $in: user.following.map((person) => person._id) } }),
-      Gallery.find({ _id: { $in: user.like.map((like) => like._id) } }),
-      Gallery.find({ artist: user.username }).sort({ _id: -1 }).limit(48),
-    ]);
+    const id = req.user!.id;
+    const following = (
+      await sql.query(
+        'SELECT u.id,u.username,u.role FROM gallery.users u JOIN gallery.follows f ON f.artist_id=u.id WHERE f.user_id=$1 ORDER BY u.id LIMIT 48',
+        [id],
+      )
+    ).rows.map((r) => publicUser(userDto(r)));
+    const likes = (
+      await sql.query(
+        `${artSelect} JOIN gallery.likes l ON l.artwork_id=a.id WHERE l.user_id=$1 AND a.status='published' ORDER BY a.id DESC LIMIT 48`,
+        [id],
+      )
+    ).rows.map((r) => ({ ...summary(r), liked: true }));
+    const artworks = await liked(
+      sql,
+      (
+        await sql.query(
+          `${artSelect} WHERE a.artist_id=$1 AND a.status='published' ORDER BY a.id DESC LIMIT 48`,
+          [id],
+        )
+      ).rows.map(summary),
+      id,
+    );
+    const reviews = (
+      await sql.query(
+        'SELECT artwork_id,text FROM gallery.reviews WHERE user_id=$1 ORDER BY created_at DESC LIMIT 48',
+        [id],
+      )
+    ).rows.map((r) => ({ artworkId: r['artwork_id'], text: r['text'] }));
+    const workshops = await joined(
+      sql,
+      (
+        await sql.query(
+          `${workshopSelect} WHERE w.artist_id=$1 ORDER BY w.id DESC LIMIT 48`,
+          [id],
+        )
+      ).rows.map(workshop),
+      id,
+    );
     res.json({
-      user: publicUser(user),
-      following: following.map(publicUser),
-      likes: likes.map((art) => artworkSummary(art, user)),
-      reviews: user.reviews.map((review) => ({
-        artworkId: String(review.artId),
-        text: review.review,
-      })),
-      artworks: artworks.map((art) => artworkSummary(art, user)),
-      workshops: user.workshops.map((workshop) =>
-        publicWorkshop(workshop, user, user),
-      ),
+      user: req.user,
+      following,
+      likes,
+      reviews,
+      artworks,
+      workshops,
     });
   });
   router.patch('/account', requireAuth, async (req, res) => {
     const role = textField(req.body, 'role', 10);
-    if (role !== 'patron' && role !== 'artist')
+    if (!['artist', 'patron'].includes(role))
       throw new HttpError(400, 'Choose a patron or artist account.');
-    const user = requireDocument(
-      await User.findByIdAndUpdate(
-        req.user!._id,
-        { $set: { aType: role } },
-        { returnDocument: 'after' },
+    const result = await security.change(() =>
+      sql.query(
+        'UPDATE gallery.users SET role=$1 WHERE id=$2 RETURNING id,username,role',
+        [role, req.user!.id],
       ),
-      'Account not found.',
     );
     await cache.invalidate();
-    res.json({ user: publicUser(user) });
-  });
-  router.put('/artists/:id/follow', requireAuth, async (req, res) => {
-    const artist = requireDocument(
-      await User.findById(objectId(req.params['id'])),
-      'Artist not found.',
-    );
-    if (artist.aType !== 'artist' || artist.username === req.user!.username)
-      throw new HttpError(400, 'Choose another artist to follow.');
-    await User.updateOne(
-      { _id: req.user!._id, 'following.username': { $ne: artist.username } },
-      {
-        $push: {
-          following: {
-            _id: artist._id,
-            username: artist.username,
-            aType: 'artist',
-          },
-        },
-      },
-    );
-    res.json({ following: true });
-  });
-  router.delete('/artists/:id/follow', requireAuth, async (req, res) => {
-    const artist = requireDocument(
-      await User.findById(objectId(req.params['id'])),
-      'Artist not found.',
-    );
-    await User.updateOne(
-      { _id: req.user!._id },
-      { $pull: { following: { username: artist.username } } },
-    );
-    res.json({ following: false });
+    res.json({ user: publicUser(userDto(result.rows[0]!)) });
   });
   for (const method of ['put', 'delete'] as const) {
-    router[method]('/artworks/:id/like', requireAuth, async (req, res) => {
+    router[method]('/artists/:id/follow', requireAuth, async (req, res) => {
       const id = objectId(req.params['id']);
-      const art = requireDocument(
-        await Gallery.findById(id),
-        'Artwork not found.',
+      const artist = requireDocument(
+        (await sql.query('SELECT role FROM gallery.users WHERE id=$1', [id]))
+          .rows[0],
+        'Artist not found.',
       );
-      const liking = method === 'put';
-      const result = await User.updateOne(
-        { _id: req.user!._id, 'like._id': liking ? { $ne: id } : id },
-        liking
-          ? { $push: { like: { _id: art._id, name: art.name } } }
-          : { $pull: { like: { _id: id } } },
+      if (
+        method === 'put' &&
+        (artist['role'] !== 'artist' || id === req.user!.id)
+      )
+        throw new HttpError(400, 'Choose another artist to follow.');
+      await sql.query(
+        method === 'put'
+          ? 'INSERT INTO gallery.follows (user_id,artist_id) VALUES ($1,$2) ON CONFLICT DO NOTHING'
+          : 'DELETE FROM gallery.follows WHERE user_id=$1 AND artist_id=$2',
+        [req.user!.id, id],
       );
-      if (result.modifiedCount)
-        await Gallery.updateOne(
-          { _id: id },
-          liking ? { $push: { numLikes: 'like' } } : { $pop: { numLikes: -1 } },
+      res.json({ following: method === 'put' });
+    });
+    router[method]('/artworks/:id/like', requireAuth, async (req, res) => {
+      const id = objectId(req.params['id']),
+        liking = method === 'put';
+      const likeCount = await sql.transaction(async (tx) => {
+        await published(tx, id, true);
+        const changed = await tx.query(
+          liking
+            ? 'INSERT INTO gallery.likes (user_id,artwork_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING artwork_id'
+            : 'DELETE FROM gallery.likes WHERE user_id=$1 AND artwork_id=$2 RETURNING artwork_id',
+          [req.user!.id, id],
         );
-      const updated = requireDocument(
-        await Gallery.findById(id),
-        'Artwork not found.',
-      );
-      if (result.modifiedCount) await cache.invalidate();
-      res.json({ liked: liking, likeCount: updated.numLikes.length });
+        if (changed.rows.length)
+          await tx.query(
+            'UPDATE gallery.artworks SET like_count=like_count+$1 WHERE id=$2',
+            [liking ? 1 : -1, id],
+          );
+        return Number(
+          (
+            await tx.query(
+              'SELECT like_count FROM gallery.artworks WHERE id=$1',
+              [id],
+            )
+          ).rows[0]!['like_count'],
+        );
+      });
+      await cache.invalidate();
+      res.json({ liked: liking, likeCount });
     });
   }
   router.post('/artworks/:id/reviews', requireAuth, async (req, res) => {
-    const id = objectId(req.params['id']);
-    const review = textField(req.body, 'text', 2000);
-    const art = requireDocument(
-      await Gallery.findById(id),
-      'Artwork not found.',
-    );
-    const entry = {
-      reviewId: randomUUID(),
-      user: req.user!.username,
-      userId: req.user!._id,
-      review,
-    };
-    await Gallery.updateOne({ _id: id }, { $push: { reviews: entry } });
-    await User.updateOne(
-      { _id: req.user!._id },
-      {
-        $push: {
-          reviews: {
-            reviewId: entry.reviewId,
-            art: art.artist,
-            artId: id,
-            review,
-          },
-        },
-      },
-    );
+    const id = objectId(req.params['id']),
+      text = textField(req.body, 'text', 2000),
+      reviewId = randomUUID();
+    await sql.transaction(async (tx) => {
+      await published(tx, id, true);
+      await tx.query(
+        'INSERT INTO gallery.reviews (id,user_id,artwork_id,text) VALUES ($1,$2,$3,$4)',
+        [reviewId, req.user!.id, id, text],
+      );
+      await tx.query(
+        'UPDATE gallery.artworks SET review_count=review_count+1 WHERE id=$1',
+        [id],
+      );
+    });
     await cache.invalidate();
-    res.status(201).json(publicReview(entry, req.user));
+    res.status(201).json({
+      id: reviewId,
+      author: req.user!.username,
+      authorId: req.user!.id,
+      text,
+      owned: true,
+    });
   });
   router.delete(
     '/artworks/:id/reviews/:reviewId',
     requireAuth,
     async (req, res) => {
       const id = objectId(req.params['id']);
-      const art = requireDocument(
-        await Gallery.findById(id),
-        'Artwork not found.',
-      );
-      const review = requireDocument(
-        art.reviews.find((item) => reviewId(item) === req.params['reviewId']) ||
-          null,
-        'Review not found.',
-      );
-      if (review.user !== req.user!.username)
-        throw new HttpError(403, 'You can only remove your own reviews.');
-      const match = review.reviewId
-        ? { reviewId: review.reviewId }
-        : { review: review.review };
-      await Gallery.updateOne(
-        { _id: id },
-        { $pull: { reviews: { ...match, user: req.user!.username } } },
-      );
-      await User.updateOne(
-        { _id: req.user!._id },
-        { $pull: { reviews: { ...match, artId: id } } },
-      );
+      await sql.transaction(async (tx) => {
+        await published(tx, id, true);
+        const r = requireDocument(
+          (
+            await tx.query(
+              'SELECT user_id FROM gallery.reviews WHERE id=$1 AND artwork_id=$2',
+              [req.params['reviewId'], id],
+            )
+          ).rows[0],
+          'Review not found.',
+        );
+        if (r['user_id'] !== req.user!.id)
+          throw new HttpError(403, 'You can only remove your own reviews.');
+        await tx.query('DELETE FROM gallery.reviews WHERE id=$1', [
+          req.params['reviewId'],
+        ]);
+        await tx.query(
+          'UPDATE gallery.artworks SET review_count=review_count-1 WHERE id=$1',
+          [id],
+        );
+      });
       await cache.invalidate();
       res.sendStatus(204);
     },
   );
-  router.post(
-    '/artworks',
-    requireAuth,
-    artistOnly,
-    upload.single('image'),
-    async (req, res) => {
-      const artwork = {
-        name: textField(req.body, 'title'),
-        year: textField(req.body, 'year', 4),
-        category: textField(req.body, 'category'),
-        medium: textField(req.body, 'medium'),
-        description: textField(req.body, 'description', 10000),
-      };
-      if (!/^\d{1,4}$/.test(artwork.year))
-        throw new HttpError(400, 'Year must contain up to four digits.');
-      if (!req.file) throw new HttpError(400, 'Image upload is required.');
-      if (await Gallery.exists({ name: artwork.name }))
-        throw new HttpError(409, 'An artwork with that title already exists.');
-      const filename = `${randomUUID()}${imageExtension(req.file.buffer)}`;
-      const destination = path.join(uploadDirectory, filename);
-      await writeFile(destination, req.file.buffer);
-      try {
-        const art = await Gallery.create({
-          ...artwork,
-          artist: req.user!.username,
-          image: `/uploads/${filename}`,
-        });
-        await cache.invalidate();
-        res.status(201).json(publicArtwork(art, req.user));
-      } catch (error) {
-        await unlink(destination);
-        throw error;
-      }
-    },
+  router.post('/uploads', requireAuth, artistOnly, async (req, res) =>
+    res
+      .status(201)
+      .json(
+        await reserveUpload(
+          sql,
+          storage,
+          req.user!.id,
+          req.body?.contentType,
+          req.body?.bytes,
+        ),
+      ),
   );
+  router.post('/artworks', requireAuth, artistOnly, async (req, res) => {
+    const title = textField(req.body, 'title'),
+      year = textField(req.body, 'year', 4),
+      category = textField(req.body, 'category'),
+      medium = textField(req.body, 'medium'),
+      description = textField(req.body, 'description', 10000);
+    if (!/^\d{1,4}$/.test(year))
+      throw new HttpError(400, 'Year must contain up to four digits.');
+    const uploadId = textField(req.body, 'uploadId', 36);
+    if (!/^[a-f0-9-]{36}$/.test(uploadId))
+      throw new HttpError(400, 'Invalid upload ID.');
+    const artworkId = createHash('sha256')
+      .update(uploadId)
+      .digest('hex')
+      .slice(0, 24);
+    const reservation = requireDocument(
+      (
+        await sql.query(
+          'SELECT * FROM gallery.uploads WHERE id=$1 AND user_id=$2',
+          [uploadId, req.user!.id],
+        )
+      ).rows[0],
+      'Upload not found.',
+    );
+    if (reservation['used_at']) {
+      const existing = (
+        await sql.query(
+          'SELECT status FROM gallery.artworks WHERE id=$1 AND artist_id=$2',
+          [artworkId, req.user!.id],
+        )
+      ).rows[0];
+      if (existing?.['status'] !== 'published')
+        throw new HttpError(
+          409,
+          'This upload is already being processed or failed. Choose a new upload.',
+        );
+      const doc = requireDocument(
+        await store.get(artworkId),
+        'Artwork document missing.',
+      );
+      if (
+        doc.title !== title ||
+        doc.year !== year ||
+        doc.category !== category ||
+        doc.medium !== medium ||
+        doc.description !== description
+      )
+        throw new HttpError(
+          409,
+          'This upload has already published different artwork metadata.',
+        );
+      res
+        .status(200)
+        .json({
+          ...doc,
+          artist: req.user!.username,
+          likeCount: 0,
+          reviewCount: 0,
+          liked: false,
+          reviews: [],
+        });
+      return;
+    }
+    // Claim atomically. A consumed reservation cannot be reused in another publication.
+    const row = requireDocument(
+      (
+        await sql.query(
+          'UPDATE gallery.uploads SET used_at=now() WHERE id=$1 AND user_id=$2 AND used_at IS NULL AND expires_at>now() RETURNING *',
+          [uploadId, req.user!.id],
+        )
+      ).rows[0],
+      'Upload expired or already used.',
+    );
+    const path = String(row['path']);
+    let promoted = false;
+    try {
+      await storage.inspect(
+        path,
+        String(row['content_type']),
+        Number(row['max_bytes']),
+      );
+      const imageUrl = await storage.publish(path);
+      promoted = true;
+      const art = {
+        id: artworkId,
+        artistId: req.user!.id,
+        title,
+        year,
+        category,
+        medium,
+        description,
+        imageUrl,
+      };
+      await publish(sql, store, art);
+      await cache.invalidate();
+      res.status(201).json({
+        ...art,
+        artist: req.user!.username,
+        likeCount: 0,
+        reviewCount: 0,
+        liked: false,
+        reviews: [],
+      });
+    } catch (error) {
+      if (promoted) {
+        try {
+          // Preserve images for ambiguous/pending publications until reconciliation.
+          const row = (
+            await sql.query('SELECT id FROM gallery.artworks WHERE id=$1', [
+              artworkId,
+            ])
+          ).rows[0];
+          if (!row && !(await store.get(artworkId))) await storage.remove(path);
+        } catch {
+          /* Leave the object for operator reconciliation if a store is unavailable. */
+        }
+      }
+      throw error;
+    }
+  });
   router.post('/workshops', requireAuth, artistOnly, async (req, res) => {
-    const name = textField(req.body, 'name');
-    const goal = textField(req.body, 'goal', 2000);
-    const weeks: unknown = req.body?.weeks;
+    const name = textField(req.body, 'name'),
+      goal = textField(req.body, 'goal', 2000),
+      weeks: unknown = req.body?.weeks;
     if (
       typeof weeks !== 'number' ||
       !Number.isInteger(weeks) ||
@@ -383,52 +563,50 @@ export function galleryRoutes(
       weeks > 9999
     )
       throw new HttpError(400, 'Duration must be 1–9999 whole weeks.');
-    const workshop = {
-      workshopId: randomUUID(),
+    const id = randomUUID();
+    await sql.query(
+      'INSERT INTO gallery.workshops (id,artist_id,name,goal,weeks) VALUES ($1,$2,$3,$4,$5)',
+      [id, req.user!.id, name, goal, weeks],
+    );
+    await cache.invalidate();
+    res.status(201).json({
+      id,
+      artistId: req.user!.id,
+      artist: req.user!.username,
       name,
       goal,
-      duration: String(weeks),
-      user: req.user!.username,
-      signed: [],
-    };
-    const result = await User.updateOne(
-      { _id: req.user!._id, 'workshops.name': { $ne: name } },
-      { $push: { workshops: workshop } },
-    );
-    if (!result.modifiedCount)
-      throw new HttpError(409, 'A workshop with that name already exists.');
-    await cache.invalidate();
-    res.status(201).json(publicWorkshop(workshop, req.user!, req.user));
+      weeks,
+      attendeeCount: 0,
+      joined: false,
+    });
   });
   router.put(
     '/artists/:id/workshops/:workshopId/registration',
     requireAuth,
     async (req, res) => {
-      const artist = requireDocument(
-        await User.findById(objectId(req.params['id'])),
-        'Artist not found.',
-      );
-      const workshop = requireDocument(
-        artist.workshops.find(
-          (item) => workshopId(item) === req.params['workshopId'],
-        ) || null,
+      const id = objectId(req.params['id']),
+        workshopId = String(req.params['workshopId']);
+      requireDocument(
+        (
+          await sql.query(
+            'SELECT id FROM gallery.workshops WHERE id=$1 AND artist_id=$2',
+            [workshopId, id],
+          )
+        ).rows[0],
         'Workshop not found.',
       );
-      await User.updateOne(
-        { _id: artist._id, 'workshops.name': workshop.name },
-        { $addToSet: { 'workshops.$.signed': { name: req.user!.username } } },
+      await sql.query(
+        'INSERT INTO gallery.enrollments (user_id,workshop_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [req.user!.id, workshopId],
       );
-      const updated = requireDocument(
-        await User.findById(artist._id),
-        'Artist not found.',
-      );
-      res.json(
-        publicWorkshop(
-          updated.workshops.find((item) => item.name === workshop.name)!,
-          updated,
-          req.user,
+      await cache.invalidate();
+      res.json({
+        ...workshop(
+          (await sql.query(`${workshopSelect} WHERE w.id=$1`, [workshopId]))
+            .rows[0]!,
         ),
-      );
+        joined: true,
+      });
     },
   );
   return router;

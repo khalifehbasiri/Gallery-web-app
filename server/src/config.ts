@@ -21,6 +21,16 @@ export interface Config {
   redisUrl?: string;
   redisCacheTtlSeconds: number;
   redisKeyPrefix: string;
+  databaseUrl?: string;
+  databaseCa?: string;
+  firebaseProjectId?: string;
+  firebaseCredentials?: string;
+  firestoreDatabaseId: string;
+  supabaseUrl?: string;
+  supabaseServiceKey?: string;
+  storageBucket: string;
+  upstashUrl?: string;
+  upstashToken?: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -60,6 +70,16 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
       'REDIS_CACHE_TTL_SECONDS must be an integer between 1 and 3600.',
     );
   const redisKeyPrefix = env.REDIS_KEY_PREFIX || 'gallery-web-app';
+  if (
+    Boolean(env.UPSTASH_REDIS_REST_URL) !==
+    Boolean(env.UPSTASH_REDIS_REST_TOKEN)
+  )
+    throw new Error('Configure both Upstash REST variables.');
+  if (
+    env.UPSTASH_REDIS_REST_URL &&
+    !/^https:\/\/[a-z0-9-]+\.upstash\.io\/?$/.test(env.UPSTASH_REDIS_REST_URL)
+  )
+    throw new Error('Invalid UPSTASH_REDIS_REST_URL.');
   if (!/^[a-zA-Z0-9:_-]{1,64}$/.test(redisKeyPrefix))
     throw new Error(
       'REDIS_KEY_PREFIX must contain 1–64 letters, digits, colons, underscores, or hyphens.',
@@ -74,5 +94,15 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     redisUrl,
     redisCacheTtlSeconds,
     redisKeyPrefix,
+    databaseUrl: env.DATABASE_URL,
+    databaseCa: env.DATABASE_CA_CERT,
+    firebaseProjectId: env.FIREBASE_PROJECT_ID,
+    firebaseCredentials: env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    firestoreDatabaseId: env.FIRESTORE_DATABASE_ID || '(default)',
+    supabaseUrl: env.SUPABASE_URL,
+    supabaseServiceKey: env.SUPABASE_SERVICE_ROLE_KEY,
+    storageBucket: env.STORAGE_BUCKET || 'gallery-images',
+    upstashUrl: env.UPSTASH_REDIS_REST_URL,
+    upstashToken: env.UPSTASH_REDIS_REST_TOKEN,
   };
 }
