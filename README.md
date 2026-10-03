@@ -54,8 +54,6 @@ Angular runs at [localhost:4200](http://localhost:4200), proxying `/api` to Expr
 - Direct signed image uploads with private staging, MIME/size/signature checks and a 5 MB limit.
 - Repeatable migration tooling, an isolated PostgreSQL demo, automated security tests and live cloud verification.
 
-Resume example: “Modernized a legacy gallery into an Angular/TypeScript and Express application, integrating PostgreSQL, Firestore and Redis with rotating refresh sessions, cache invalidation and validated direct image uploads; deployed on Vercel.”
-
 ## Design decisions: what goes where, and why
 
 The goal is a responsive application whose correctness survives cache failures and retries. The design keeps business data durable, avoids repeated database reads where safe, and moves email delivery outside HTTP requests. Free hosting influenced the deployment; it does not replace transaction boundaries or security checks.
@@ -170,25 +168,6 @@ Render's always-on worker plans cost money. The approved $0 deployment uses a **
 **Sender setup:** the integration is implemented, but public sending is disabled until an owned domain is verified and the signed webhook is configured. An Outlook mailbox cannot be used as a Resend sender because Microsoft owns that domain. Owner-only tests can use `onboarding@resend.dev` and `RESEND_TEST_RECIPIENT`; they cannot send to other users. See [notification setup and operations](docs/NOTIFICATIONS.md).
 
 The deployed queue/processor/provider path passed both Resend's delivery simulator and one authorized account-owner inbox test, each in one send attempt. Resend reported `delivered` for the simulator and `opened` for the inbox test. Temporary test accounts/jobs were removed, and the processor returned to disabled delivery configuration. The owner's address remains private; public sending still requires the owned-domain setup.
-
-## Skills demonstrated against the role
-
-| Requirement                         | Concrete evidence in this repository                                                                                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Angular, RxJS, NgRx                 | Angular 21 standalone/lazy pages, reactive forms, strict templates, RxJS search cancellation and NgRx SignalStore.                                                            |
-| Node.js / Express / REST            | Express 5 on Node 22, typed contracts, resource routes, runtime validation, authorization and consistent JSON errors.                                                         |
-| PostgreSQL modeling and queries     | Normalized relationships, uniqueness/foreign keys, transactional counts/outbox, full-text GIN search, indexes, bounded pagination and transaction pooling.                    |
-| MongoDB / NoSQL                     | Original MongoDB data format/fixtures and explicit read-only migration/export tooling; live NoSQL storage uses Firestore. Active MongoDB production hosting is not claimed.   |
-| Responsive frontend/API integration | Responsive gallery/detail/account flows, direct signed uploads, optimistic likes with rollback, session renewal and email preferences.                                        |
-| JWT authentication                  | Strict HttpOnly cookies, independent rotating refresh secrets, session families, replay detection, token denial and distributed revocation fences. OAuth2 is not implemented. |
-| Redis and background processing     | Shared public caches, invalidation, auth proofs, throttles, UUID queue hints, a durable SQL outbox, leased processing and retries. No RabbitMQ implementation is claimed.     |
-| Cloud platforms                     | Vercel frontend/API, GCP Firestore with IAM/rules, Supabase SQL/storage, Upstash Redis, Render processor and Resend integration.                                              |
-| Testing and maintainability         | Node test runner + Supertest + isolated PGlite; Angular Vitest tests; live Redis integration tests; TypeScript, shared contracts, formatting and documented recovery paths.   |
-| Git                                 | Incremental commits separating catalog restoration, notification implementation and documentation. No invented historical activity.                                           |
-
-Docker, a custom CI/CD pipeline, GraphQL, formal Scrum participation and team collaboration are outside this implementation. Provider deployment automation is configured, but it is not presented as a custom test-gated CI pipeline. This is a modular Express application plus a job processor, not a general microservices platform.
-
-Resume example: “Built an Angular/TypeScript and Express gallery using PostgreSQL transactions, Firestore documents and Redis caching; implemented rotating refresh sessions, distributed revocation checks and a durable notification outbox with leased background processing and idempotent email retries.”
 
 ## Configuration and checks
 
