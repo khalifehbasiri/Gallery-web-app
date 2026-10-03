@@ -527,6 +527,7 @@ export async function processNotifications(
   sender: MailSender = resendSender(config),
   queue?: RedisNotificationQueue,
   limit = 5,
+  shouldStop: () => boolean = () => false,
 ) {
   const results = { sent: 0, cancelled: 0, retried: 0, dead: 0 };
   if (!emailEnabled(config)) return results;
@@ -536,7 +537,7 @@ export async function processNotifications(
   } catch {
     /* Durable SQL fallback. */
   }
-  for (let index = 0; index < Math.min(limit, 5); index++) {
+  for (let index = 0; index < Math.min(limit, 5) && !shouldStop(); index++) {
     const lease = randomUUID();
     const row = (
       await sql.query(

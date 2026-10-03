@@ -39,7 +39,14 @@ let inFlight: Promise<unknown> | undefined;
 function drain() {
   if (draining || stopping) return inFlight || Promise.resolve();
   draining = true;
-  inFlight = processNotifications(sql, config, undefined, queue)
+  inFlight = processNotifications(
+    sql,
+    config,
+    undefined,
+    queue,
+    5,
+    () => stopping,
+  )
     .then((result) => {
       if (Object.values(result).some(Boolean))
         console.log('Notification batch:', JSON.stringify(result));

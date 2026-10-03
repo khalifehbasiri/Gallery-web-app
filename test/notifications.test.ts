@@ -508,3 +508,24 @@ it('keeps production delivery disabled without a verified public configuration o
     true,
   );
 });
+it('stops claiming new jobs during graceful shutdown', async () => {
+  await queue();
+  const result = await processNotifications(
+    sql,
+    config,
+    {
+      send: async () => {
+        throw new Error('must not send');
+      },
+    },
+    undefined,
+    5,
+    () => true,
+  );
+  assert.equal(result.sent, 0);
+  assert.equal(
+    (await sql.query('SELECT status FROM gallery.notification_outbox'))
+      .rows[0]!['status'],
+    'pending',
+  );
+});
