@@ -1,19 +1,17 @@
-//Import the mongoose module
-import pkg from 'mongoose';
+import mongoose from 'mongoose';
 
-//mongoose modules -- you will need to add type": "module" to your package.json
-const { Schema, model} = pkg;
+const { Schema, model } = mongoose;
+mongoose.set('strictQuery', true);
 
-//Define the Schema for a citizen
-const userSchema = Schema({
-    username: String,
-    password: String,
-    aType: String,
-    following: [],
-    like: [],
-    reviews: [],
-    workshops: []
+const userSchema = new Schema({
+  username: { type: String, required: true, trim: true, unique: true },
+  password: { type: String, required: true, select: false },
+  aType: { type: String, enum: ['patron', 'artist'], default: 'patron' },
+  // Retain existing embedded records so old databases need no migration.
+  following: { type: [Schema.Types.Mixed], default: [] },
+  like: { type: [Schema.Types.Mixed], default: [] },
+  reviews: { type: [Schema.Types.Mixed], default: [] },
+  workshops: { type: [Schema.Types.Mixed], default: [] },
 });
 
-//Export the default so it can be imported
-export default model("user", userSchema);
+export default model('user', userSchema);

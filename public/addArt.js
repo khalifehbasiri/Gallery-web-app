@@ -1,45 +1,21 @@
-function add_art(){
-    let RequiredFields = ["name", "year", "category", "medium", "description"]
-    let art = {}
-
-    for (let field of RequiredFields){
-        art[field] = document.getElementById("A" + field).value;
-
-        if (art[field] == ""){
-            alert("Missing " + field + " field!");
-            return;
-        } 
-    }
-
-    if (isNaN(art.year)){
-        alert("year must be a number!");
-        return;
-    }
-
-    let image = document.getElementById("Aimage").files[0];
-    if (!image){
-        alert("Missing image field!");
-        return;
-    }
-
-    let formData = new FormData();
-    for (let field of RequiredFields){
-        formData.append(field, art[field]);
-    }
-    formData.append("image", image);
-
-    let xhttp = new XMLHttpRequest()
-
-    xhttp.onload = function() {
-        if (this.status >= 200 && this.status < 300) {
-            window.location.href = "/Account";
-        } else {
-            alert("The artwork could not be added. Please try again.");
-        }
-    };
-    xhttp.onerror = function() {
-        alert("Could not connect to the server. Please try again.");
-    };
-    xhttp.open("POST", "/addArt");
-    xhttp.send(formData);
+function add_art() {
+  return withButton(document.getElementById('Aadd'), async () => {
+    const artwork = readFields('A', [
+      'name',
+      'year',
+      'category',
+      'medium',
+      'description',
+    ]);
+    const image = document.getElementById('Aimage').files[0];
+    if (!image) throw new Error('Choose an image first.');
+    if (image.size > 5 * 1024 * 1024)
+      throw new Error('Images must be 5 MB or smaller.');
+    const body = new FormData();
+    for (const [field, value] of Object.entries(artwork))
+      body.append(field, value);
+    body.append('image', image);
+    await request('/addArt', body);
+    location.href = '/account';
+  });
 }

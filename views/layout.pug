@@ -1,0 +1,15 @@
+doctype html
+html(lang="en")
+    head
+        meta(charset="utf-8")
+        meta(name="viewport", content="width=device-width, initial-scale=1")
+        block title
+            title Gallery
+        link(rel="stylesheet", href="/styles.css")
+        script(src="/api.js", defer)
+        script(src="/interactions.js", defer)
+        block scripts
+    body
+        include partials/headers
+        main.main-container
+            block content

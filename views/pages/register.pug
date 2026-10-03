@@ -1,21 +1,16 @@
-html(lang="en")
-    head
-        title Register User
-        link(rel="stylesheet", href="/styles.css")
-    body
-        include ../partials/headers
+extends ../layout
 
-        .main-container
-            h1 Register
+block title
+    title Register User
 
-            #error
+block scripts
+    script(src="/register.js", defer)
 
-            p Username:
-            input#name(type="textbox")
-
-            p Password:
-            input#pass(type="password")
-
-            button#submit(type="button") Register
-
-        script(src="/register.js")
+block content
+    h1 Register
+    #error(role="alert")
+    label(for="name") Username
+    input#name(type="text", maxlength="80", autocomplete="username", required)
+    label(for="pass") Password (at least 8 characters)
+    input#pass(type="password", minlength="8", maxlength="256", autocomplete="new-password", required)
+    button#submit(type="button") Register

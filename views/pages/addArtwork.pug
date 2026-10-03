@@ -1,30 +1,23 @@
-html(lang="en")
-    head
-        title Add Artwork
-        link(rel="stylesheet", href="/styles.css")
-        script(type='text/javascript', src='/addArt.js')
-    body
-        include ../partials/headers
+extends ../layout
 
-        .main-container
-            h1 Add Artwork
+block title
+    title Add Artwork
 
-            p Name:
-            input#Aname(type="textbox", placeholder="name...")
+block scripts
+    script(src="/addArt.js", defer)
 
-            p Year:
-            input#Ayear(type="textbox", placeholder="year...")
-
-            p Category:
-            input#Acategory(type="textbox", placeholder="category...")
-
-            p Medium:
-            input#Amedium(type="textbox", placeholder="medium...")
-
-            p Description:
-            input#Adescription(type="textbox", placeholder="description...")
-
-            p Image:
-            input#Aimage(type="file", accept="image/*")
-
-            button#Aadd(type='button', onclick="add_art()") Add
+block content
+    h1 Add Artwork
+    label(for="Aname") Name
+    input#Aname(type="text", maxlength="200", required)
+    label(for="Ayear") Year
+    input#Ayear(type="number", min="0", max="9999", required)
+    label(for="Acategory") Category
+    input#Acategory(type="text", maxlength="200", required)
+    label(for="Amedium") Medium
+    input#Amedium(type="text", maxlength="200", required)
+    label(for="Adescription") Description
+    textarea#Adescription(maxlength="10000", required)
+    label(for="Aimage") Image (PNG, JPEG, GIF, or WebP; up to 5 MB)
+    input#Aimage(type="file", accept="image/png,image/jpeg,image/gif,image/webp", required)
+    button#Aadd(type="button", onclick="add_art()") Add

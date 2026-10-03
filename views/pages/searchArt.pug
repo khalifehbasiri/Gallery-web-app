@@ -1,52 +1,23 @@
-html(lang="en")
-    head
-        title Artwork
-        link(rel="stylesheet", href="/styles.css")
-        script(type='text/javascript', src='/like.js')
-        script(type='text/javascript', src='/unlike.js')
-        script(type='text/javascript', src='/review.js')
-        script(type='text/javascript', src='/r_review.js')
-        script(type='text/javascript', src='/search.js')
-    body
-        include ../partials/headers
+extends ../layout
+include ../mixins/artwork
 
-        .main-container
-            h1 Search Art
+block title
+    title Search Art
 
-            p Search parameters
-            input#Sname(type="textbox", placeholder="name...")
-            input#Sartist(type="textbox", placeholder="artist...")
-            input#Scategory(type="textbox", placeholder="category...")
-            button#search(type='button', onclick="search()") Search
+block scripts
+    script(src="/search.js", defer)
 
-            hr
-
-            if art && user
-                - let i = 0;
-                each elem in art
-                    p
-                        a(href=`/art/${elem._id}`) #{elem.name}
-                        br
-                        | By: #{elem.artist}
-                        br
-                        img(src=`${elem.image}`, width="400", height="500")
-
-                    - let foundLike = false
-                    if user.like
-                        each elem1 in user.like
-                            if elem1.name == elem.name
-                                - foundLike = true
-
-                    if foundLike
-                        button(id=`unlike${i}`, value=`${elem._id}`, onclick=`unlike(${i})`) ♥
-                        span(id=`likeCount${i}`) #{elem.numLikes.length}
-                    else
-                        button(id=`like${i}`, value=`${elem._id}`, onclick=`like(${i})`) ♡
-                        span(id=`likeCount${i}`) #{elem.numLikes.length}
-
-                    p Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
-                    p Description: #{elem.description}
-
-                    input(id=`yes${i}`, type="textbox", value=`${elem._id}`, style="display:none")
-                    - i++
-                    hr
+block content
+    h1 Search Art
+    p Enter a name, artist, or category. Results match all supplied fields exactly.
+    label(for="Sname") Name
+    input#Sname(type="text", placeholder="name...", maxlength="200")
+    label(for="Sartist") Artist
+    input#Sartist(type="text", placeholder="artist...", maxlength="200")
+    label(for="Scategory") Category
+    input#Scategory(type="text", placeholder="category...", maxlength="200")
+    button#search(type="button", onclick="search()") Search
+    each artwork, index in art
+        +artworkCard(artwork, index)
+    if !art.length
+        p No results. Try searching above.

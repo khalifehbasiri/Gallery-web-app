@@ -1,109 +1,56 @@
-html(lang="en")
-    head
-        title Account
-        link(rel="stylesheet", href="/styles.css")
-        script(type='text/javascript', src='/changeType.js')
-        script(type='text/javascript', src='/r_review.js')
-        script(type='text/javascript', src='/review.js')
-    body
-        include ../partials/headers
+extends ../layout
+include ../mixins/artwork
 
-        .main-container
-            h1 Account info
+block title
+    title Account
 
-            p Username:
-            input#userName(type="textbox", value=`${user.username}`)
+block scripts
+    script(src="/changeType.js", defer)
 
-            p Password:
-            input#userPassword(type="textbox", value=`${user.password}`)
+block content
+    h1 Account info
+    p Username: #{user.username}
+    p Account type: #{user.aType}
+    button#accType(type="button") Change account type
 
-            p Account type: #{user.aType}
-            button#accType(type='button') Change account type
-            input#accType1(type="textbox", value=`${user.aType}`, style="display:none")
+    h2 Following
+    if user.following.length
+        ul
+            each followed in user.following
+                li
+                    a(href=`/artist/${followed._id}`) #{followed.username}
+    else
+        p You are not following anyone yet.
 
-            br
+    h2 Likes
+    if user.like.length
+        ul
+            each artwork in user.like
+                li
+                    a(href=`/art/${artwork._id}`) #{artwork.name}
+    else
+        p You haven't liked any artworks yet.
 
-            h2 Following:
-            if user.following && user.following.length
-                each elem in user.following
-                    if elem.aType == "artist"
-                        a(href=`/artist/${elem._id}`) #{elem.username}
-                        br
-            else
-                p You are not following anyone yet.
+    h2 Reviews
+    if user.reviews.length
+        ul
+            each review in user.reviews
+                li
+                    a(href=`/art/${review.artId}`) #{review.review}
+    else
+        p You have not posted any reviews yet.
 
-            br
-            h2 Likes:
-            if user.like && user.like.length
-                ul
-                    each elem in user.like
-                        li
-                            a(href=`/art/${elem._id}`) #{elem.name}
-            else
-                p You haven't liked any artworks yet.
+    if user.aType === 'artist'
+        h2 Workshops
+        a(href="/addWorkshop") Add Workshop
+        each workshop in user.workshops
+            p Name: #{workshop.name}, Goal: #{workshop.goal}, Duration: #{workshop.duration} weeks, Signed by #{(workshop.signed || []).length}
+        if !user.workshops.length
+            p No workshops yet.
 
-            br
-            h2 Reviews:
-            if user.reviews && user.reviews.length
-                ul
-                    each elem in user.reviews
-                        li
-                            a(href=`/art/${elem.artId}`) #{elem.review}
-            else
-                p You have not posted any reviews yet.
-
-            if user.aType == "artist"
-                h2 Workshops:
-                a(href="/addWorkshop") Add Workshop
-                if user.workshops && user.workshops.length
-                    each workshop in user.workshops
-                        p
-                            | Name: #{workshop.name},
-                            | Goal: #{workshop.goal},
-                            | Duration: #{workshop.duration} weeks,
-                            | Signed by #{workshop.signed.length} 
-                else
-                    p No workshops yet.
-
-                h2 Artwork:
-                a(href="/addArtwork") Add Artwork
-
-                - let i = 0;
-                if art && art.length
-                    each elem in art
-                        br
-                        a(href=`/art/${elem._id}`) #{elem.name}
-                        br
-                        img(src=`${elem.image}`, width="400", height="500")
-                        p
-                            | Likes: #{elem.numLikes.length}, Year: #{elem.year}, Medium: #{elem.medium}, Category: #{elem.category}
-                            br
-                            | Description: #{elem.description}
-
-                        p Reviews:
-                        .reviews(id=`reviews${i}`)
-                            if elem.reviews && elem.reviews.length
-                                each elem2 in elem.reviews
-                                    .review-entry
-                                        if elem2.user != user.username
-                                            | User:
-                                            a(href=`/artist/${elem2.userId}`) #{elem2.user}
-                                        else
-                                            | User: #{elem2.user}
-                                        br
-                                        if elem2.user == user.username
-                                            button.review-remove(type='button', value=elem2.review, onclick=`remove_Review(this, ${i})`) X
-                                        a #{elem2.review}
-                                        br
-                                        br
-                        if elem.artist != user.username
-                            input(id=`rInput${i}` type="textbox")
-                            button(id=`rSubmit${i}` type="button" onclick=`addreview(${i})`) Submit
-
-                        input(id=`yes${i}` type="textbox", value=`${elem._id}`, style="display:none")
-                        - i++;
-                        br
-                        hr
-            else
-                br
-                p You are a standard user (not an artist).
+        h2 Artwork
+        a(href="/addArtwork") Add Artwork
+        each artwork, index in art
+            +artworkCard(artwork, index)
+        if !art.length
+            p No artwork yet.

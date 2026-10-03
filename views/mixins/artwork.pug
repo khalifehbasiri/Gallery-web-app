@@ -1,0 +1,30 @@
+mixin artworkCard(artwork, index, showTitle = true)
+    article.artwork-card
+        if showTitle
+            h2
+                a(href=`/art/${artwork._id}`) #{artwork.name}
+        p By: #{artwork.artist}
+        img(src=artwork.image, alt=artwork.name, width="400", height="500", loading="lazy")
+
+        - const liked = user.like.some(item => String(item._id) === String(artwork._id))
+        button(id=`${liked ? 'unlike' : 'like'}${index}`, value=artwork._id, onclick=`${liked ? 'unlike' : 'like'}(${index})`, aria-label=liked ? 'Unlike artwork' : 'Like artwork') #{liked ? '♥' : '♡'}
+        span(id=`likeCount${index}`) #{artwork.numLikes.length}
+
+        p Year: #{artwork.year}, Medium: #{artwork.medium}, Category: #{artwork.category}
+        p Description: #{artwork.description}
+        h3 Reviews
+        .reviews(id=`reviews${index}`)
+            each review in artwork.reviews
+                .review-entry
+                    | User:
+                    a(href=`/artist/${review.userId}`) #{review.user}
+                    br
+                    if review.user === user.username
+                        button.review-remove(type="button", value=review.review, data-review-id=review.reviewId, onclick=`remove_Review(this, ${index})`, aria-label="Remove review") X
+                    span #{review.review}
+
+        if artwork.artist !== user.username
+            label(for=`rInput${index}`) Your review
+            input(id=`rInput${index}`, type="text", maxlength="2000")
+            button(id=`rSubmit${index}`, type="button", onclick=`addreview(${index})`) Submit
+        input(id=`yes${index}`, type="hidden", value=artwork._id)

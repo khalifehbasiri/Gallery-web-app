@@ -1,10 +1,8 @@
-html(lang="en")
-    head
-        title Home
-        link(rel="stylesheet", href="/styles.css")
-    body
-        include ../partials/headers
+extends ../layout
 
-        .main-container
-            h1 Welcome to the gallery!
-            p Explore the latest art or log in/register above.
+block title
+    title Home
+
+block content
+    h1 Welcome to the gallery!
+    p Explore the latest art or log in/register above.

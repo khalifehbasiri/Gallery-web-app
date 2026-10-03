@@ -1,77 +1,74 @@
-import fs from "fs";
-import path from "path";
-
-// list of all galleries
-let galleries = [];
-//Array of registered users.
-const users = [
-	{'username':'khalifa', 'password':'yes', 'aType':'patron'},
-    {'username':'Corrine Hunt', 'password':'no', 'aType':'artist'},
-	{'username':'Luke', 'password':'no', 'aType':'artist'},
-	{'username':'Anatoliy Kushch', 'password':'no', 'aType':'artist'},
-	{'username':'Lea Roche', 'password':'no', 'aType':'artist'},
-	{'username':'Jim Dine', 'password':'no', 'aType':'artist'},
-	{'username':'Shari Hatt', 'password':'no', 'aType':'artist'},
-	{'username':'Sebastian McKinnon', 'password':'no', 'aType':'artist'},
-	{'username':'Kimika Hara', 'password':'no', 'aType':'artist'},
-	{'username':'Keith Mallett', 'password':'no', 'aType':'artist'},
-	{'username':'ArtMind', 'password':'no', 'aType':'artist'},
-	{'username':'Midjourney', 'password':'no', 'aType':'artist'}
-];
-
-// traverse thru json files and add them to temp
-let temp = [];
-const files = fs.readdirSync('./JSON').filter(file => path.extname(file) === '.json');
-files.forEach(file => {
-  const fileData = fs.readFileSync(path.join('./JSON', file));
-  const json = JSON.parse(fileData.toString());
-  temp.push(json);
-});
-
-temp.forEach(elem => {
-    elem.forEach(elem1 => {
-        galleries.push(elem1);
-    })
-})
-
-//Import the mongoose module.
-import pkg from 'mongoose';
-
-const { connect, connection } = pkg;
-
-//Import the user and gallery models.
-import User from './UserModel.js';
+import mongoose from 'mongoose';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import User from './userModel.js';
 import Gallery from './galleriesModel.js';
+import { readConfig, rootDirectory } from './lib/config.js';
+import { hashPassword } from './lib/passwords.js';
 
-//Create an async function to load the data.
-//Other mongoose calls that return promises(connect, dropdatabase, create) 
-//inside the async function can use an await.
-const loadData = async () => {
-	
-	//Connect to the mongo database.
-  	await connect('mongodb://localhost:27017/TP');
+export async function seedDatabase() {
+  const directory = path.join(rootDirectory, 'JSON');
+  const files = (await readdir(directory))
+    .filter((file) => file.endsWith('.json'))
+    .sort();
+  const galleries = (
+    await Promise.all(
+      files.map(async (file) => {
+        return JSON.parse(await readFile(path.join(directory, file), 'utf8'));
+      }),
+    )
+  ).flat();
+  const artists = [...new Set(galleries.map((art) => art.artist))];
+  const users = [
+    { username: 'khalifa', password: 'yes', aType: 'patron' },
+    ...artists.map((username) => ({
+      username,
+      password: 'no',
+      aType: 'artist',
+    })),
+  ];
 
-	//Remove database and start anew.
-	await connection.dropDatabase();
-	
-	//Map each registered user object into the a new User model.
-	let access = users.map( aUser => new User(aUser));
-
-	let gallery = galleries.map( gal => new Gallery(gal));
-
-	//Creates a new documents of a citizen and user and saves
-	//it into the citizens and users collections.
-	await User.create(access);
-	await Gallery.create(gallery);
+  // Insert missing demo records only. Existing accounts and artwork are preserved.
+  for (const user of users) {
+    if (!(await User.exists({ username: user.username }))) {
+      await User.create({
+        ...user,
+        password: await hashPassword(user.password),
+      });
+    }
+  }
+  for (const gallery of galleries) {
+    if (
+      !(await Gallery.exists({ name: gallery.name, artist: gallery.artist }))
+    ) {
+      await Gallery.create(gallery);
+    }
+  }
+  return { users: users.length, artworks: galleries.length };
 }
 
-//Call to load the data.
-//Once the loadData Promise returns it will close the database
-//connection.  Any errors from connect, dropDatabase or create
-//will be caught in the catch statement.
-loadData()
-  .then((result) => {
-	console.log("Closing database connection.");
- 	connection.close();
-  })
-  .catch(err => console.log(err));
+async function main() {
+  const config = readConfig();
+  if (config.production)
+    throw new Error('Demo seeding is disabled in production.');
+  try {
+    await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 5000 });
+    const counts = await seedDatabase();
+    console.log(
+      `Demo data ready (${counts.users} accounts, ${counts.artworks} artworks). Existing data preserved.`,
+    );
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  main().catch((error) => {
+    console.error('Unable to seed Gallery:', error.message);
+    process.exitCode = 1;
+  });
+}

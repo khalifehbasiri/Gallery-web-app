@@ -1,21 +1,17 @@
-//Import the mongoose module
-import pkg from 'mongoose';
+import mongoose from 'mongoose';
 
-//mongoose modules -- you will need to add type": "module" to your package.json
-const { Schema, model} = pkg;
+const { Schema, model } = mongoose;
 
-//Define the Schema for a citizen
-const galleries = Schema({
-    name: String,
-    artist: String,
-    year: String,
-    category: String,
-    medium: String,
-    description: String,
-    image: String,
-    reviews: [],
-    numLikes: []
+const gallerySchema = new Schema({
+  name: { type: String, required: true, trim: true },
+  artist: { type: String, required: true, trim: true },
+  year: { type: String, required: true },
+  category: { type: String, required: true, trim: true },
+  medium: { type: String, required: true, trim: true },
+  description: { type: String, required: true },
+  image: { type: String, required: true },
+  reviews: { type: [Schema.Types.Mixed], default: [] },
+  numLikes: { type: [String], default: [] },
 });
 
-//Export the default so it can be imported
-export default model("galleries", galleries);
+export default model('galleries', gallerySchema);

@@ -1,21 +1,17 @@
-html(lang="en")
-    head
-        title Add Workshop
-        link(rel="stylesheet", href="/styles.css")
-        script(type='text/javascript', src='/addWorkshop.js')
-    body
-        include ../partials/headers
+extends ../layout
 
-        .main-container
-            h1 Add Workshop
+block title
+    title Add Workshop
 
-            p Name:
-            input#Wname(type="textbox", placeholder="workshop name...")
+block scripts
+    script(src="/addWorkshop.js", defer)
 
-            p Goal:
-            input#Wgoal(type="textbox", placeholder="workshop goal...")
-
-            p Duration (weeks):
-            input#Wduration(type="textbox", placeholder="workshop duration(weeks)...")
-
-            button#Wadd(type='button', onclick="add_workshop()") Add
+block content
+    h1 Add Workshop
+    label(for="Wname") Name
+    input#Wname(type="text", maxlength="200", required)
+    label(for="Wgoal") Goal
+    input#Wgoal(type="text", maxlength="2000", required)
+    label(for="Wduration") Duration (weeks)
+    input#Wduration(type="number", min="1", max="9999", required)
+    button#Wadd(type="button", onclick="add_workshop()") Add
