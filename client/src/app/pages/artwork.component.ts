@@ -245,14 +245,37 @@ export class ArtworkComponent {
     if (!current || this.liking()) return;
     this.liking.set(true);
     this.error.set('');
+    const artworkId = current.artwork.id;
+    this.detail.set({
+      ...current,
+      artwork: {
+        ...current.artwork,
+        liked: !current.artwork.liked,
+        likeCount: current.artwork.likeCount + (current.artwork.liked ? -1 : 1),
+      },
+    });
     try {
       const response = await firstValueFrom(
-        this.api.like(this.id(), !current.artwork.liked),
+        this.api.like(artworkId, !current.artwork.liked),
       );
       this.detail.update((data) =>
-        data ? { ...data, artwork: { ...data.artwork, ...response } } : data,
+        data?.artwork.id === artworkId
+          ? { ...data, artwork: { ...data.artwork, ...response } }
+          : data,
       );
     } catch (error) {
+      this.detail.update((data) =>
+        data?.artwork.id === artworkId
+          ? {
+              ...data,
+              artwork: {
+                ...data.artwork,
+                liked: current.artwork.liked,
+                likeCount: current.artwork.likeCount,
+              },
+            }
+          : data,
+      );
       this.error.set(errorMessage(error));
     } finally {
       this.liking.set(false);

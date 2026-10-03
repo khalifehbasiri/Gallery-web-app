@@ -99,3 +99,10 @@ export interface LikeResponse {
 export interface ApiError {
   error: string;
 }
+export interface NotificationPreferences {
+  available: boolean;
+  publicDemo: boolean;
+  email: string;
+  enabled: boolean;
+  verified: boolean;
+}

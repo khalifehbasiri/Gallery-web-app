@@ -14,6 +14,59 @@ describe('Artwork review form', () => {
   let http: HttpTestingController;
   afterEach(() => http.verify());
 
+  it('shows an optimistic heart immediately and restores it when persistence fails', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    TestBed.inject(AuthStore).setUser({
+      id: 'patron',
+      username: 'Patron',
+      role: 'patron',
+    });
+    const fixture = TestBed.createComponent(ArtworkComponent);
+    fixture.componentRef.setInput('id', 'art');
+    fixture.detectChanges();
+    http
+      .expectOne('/api/artworks/art')
+      .flush({
+        artist: null,
+        artwork: {
+          id: 'art',
+          title: 'Blue hour',
+          artist: 'Artist',
+          year: '2026',
+          category: 'Digital',
+          medium: 'Digital',
+          description: 'Blue.',
+          imageUrl: '/blue-hour.svg',
+          likeCount: 2,
+          reviewCount: 0,
+          liked: false,
+          reviews: [],
+        },
+      });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const operation = fixture.componentInstance.like();
+    expect(fixture.componentInstance.detail()!.artwork.liked).toBe(true);
+    expect(fixture.componentInstance.detail()!.artwork.likeCount).toBe(3);
+    http
+      .expectOne('/api/artworks/art/like')
+      .flush(
+        { error: 'Unavailable' },
+        { status: 503, statusText: 'Unavailable' },
+      );
+    await operation;
+    expect(fixture.componentInstance.detail()!.artwork.liked).toBe(false);
+    expect(fixture.componentInstance.detail()!.artwork.likeCount).toBe(2);
+    expect(fixture.componentInstance.error()).toBe('Unavailable');
+  });
+
   it('submits the form through Angular, displays the saved review, and clears the input', async () => {
     TestBed.configureTestingModule({
       providers: [

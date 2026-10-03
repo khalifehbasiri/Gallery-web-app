@@ -5,7 +5,10 @@ import { supabaseStorage } from './storage.js';
 import { createDiscoveryCache } from './cache.js';
 import { createSecurityCache } from './security-cache.js';
 import { createApp } from './app.js';
-export async function createRuntime() {
+import { notificationDispatch } from './notifications.js';
+export async function createRuntime(
+  options: { defer?: (work: Promise<void>) => void } = {},
+) {
   const config = readConfig();
   if (!config.databaseUrl)
     throw new Error(
@@ -19,12 +22,23 @@ export async function createRuntime() {
     await sql.query('SELECT 1 FROM gallery.users LIMIT 1');
     await cache.connect();
     const security = await createSecurityCache(config);
+    const notifications = await notificationDispatch(config);
     return {
       config,
-      app: createApp({ config, sql, artworks, storage, cache, security }),
+      app: createApp({
+        config,
+        sql,
+        artworks,
+        storage,
+        cache,
+        security,
+        notifications,
+        ...options,
+      }),
       async close() {
         cache.close();
         security.close();
+        notifications.close();
         await Promise.all([sql.close(), artworks.close()]);
       },
     };

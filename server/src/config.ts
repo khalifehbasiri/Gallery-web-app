@@ -31,6 +31,15 @@ export interface Config {
   storageBucket: string;
   upstashUrl?: string;
   upstashToken?: string;
+  resendKey?: string;
+  resendFrom?: string;
+  resendWebhookSecret?: string;
+  resendTestRecipient?: string;
+  resendPublicSending: boolean;
+  notificationEncryptionKey?: string;
+  notificationWorkerUrl?: string;
+  notificationWorkerSecret?: string;
+  cronSecret?: string;
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -84,6 +93,17 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(
       'REDIS_KEY_PREFIX must contain 1–64 letters, digits, colons, underscores, or hyphens.',
     );
+  if (
+    env.NOTIFICATION_WORKER_URL &&
+    !/^https:\/\/[a-z0-9-]+\.onrender\.com\/?$/.test(
+      env.NOTIFICATION_WORKER_URL,
+    )
+  )
+    throw new Error(
+      'NOTIFICATION_WORKER_URL must be the HTTPS Render service origin.',
+    );
+  if (env.RESEND_FROM && /[\r\n]/.test(env.RESEND_FROM))
+    throw new Error('RESEND_FROM cannot contain line breaks.');
   return {
     port,
     mongoUri: env.MONGODB_URI || 'mongodb://127.0.0.1:27017/TP',
@@ -104,5 +124,14 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     storageBucket: env.STORAGE_BUCKET || 'gallery-images',
     upstashUrl: env.UPSTASH_REDIS_REST_URL,
     upstashToken: env.UPSTASH_REDIS_REST_TOKEN,
+    resendKey: env.RESEND_API_KEY,
+    resendFrom: env.RESEND_FROM,
+    resendWebhookSecret: env.RESEND_WEBHOOK_SECRET,
+    resendTestRecipient: env.RESEND_TEST_RECIPIENT?.trim().toLowerCase(),
+    resendPublicSending: env.RESEND_PUBLIC_SENDING === 'true',
+    notificationEncryptionKey: env.NOTIFICATION_ENCRYPTION_KEY,
+    notificationWorkerUrl: env.NOTIFICATION_WORKER_URL,
+    notificationWorkerSecret: env.NOTIFICATION_WORKER_SECRET,
+    cronSecret: env.CRON_SECRET,
   };
 }

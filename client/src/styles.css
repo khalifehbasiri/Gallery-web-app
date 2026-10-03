@@ -730,6 +730,20 @@ dd {
 .review-form button {
   margin-top: 15px;
 }
+.review-form label {
+  display: block;
+  margin-top: 12px;
+}
+.review-form input:not([type='checkbox']) {
+  display: block;
+  width: 100%;
+  max-width: 410px;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: white;
+}
 .review-entry {
   border-top: 1px solid var(--line);
   padding-block: 23px;

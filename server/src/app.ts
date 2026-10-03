@@ -14,6 +14,14 @@ import type { ImageStorage } from './storage.js';
 import { uncachedSecurity, type SecurityCache } from './security-cache.js';
 import { csrfGuard } from './csrf.js';
 import { apiLimit } from './rate-limit.js';
+import { timingSafeEqual } from 'node:crypto';
+import {
+  notificationRoutes,
+  notificationCallbacks,
+  disabledDispatch,
+  type NotificationDispatch,
+  emailEnabled,
+} from './notifications.js';
 
 export function createApp({
   config,
@@ -25,6 +33,12 @@ export function createApp({
   artworks,
   storage,
   security = uncachedSecurity,
+  notifications = disabledDispatch,
+  defer = (work: Promise<void>) => {
+    void work.catch(() =>
+      console.error('Notification dispatch deferred to durable outbox.'),
+    );
+  },
 }: {
   config: Config;
   uploadDirectory?: string;
@@ -35,6 +49,8 @@ export function createApp({
   artworks: ArtworkStore;
   storage: ImageStorage;
   security?: SecurityCache;
+  notifications?: NotificationDispatch;
+  defer?: (work: Promise<void>) => void;
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -61,6 +77,7 @@ export function createApp({
     }),
   );
   app.use('/uploads', express.static(uploadDirectory, { maxAge: '1d' }));
+  app.use('/api/notifications', notificationCallbacks(sql, config));
   app.use(express.json({ limit: '32kb' }));
   app.use(cookieParser());
   if (rateLimitEnabled) app.use('/api', apiLimit(config, security));
@@ -83,10 +100,48 @@ export function createApp({
   app.get('/api/health', (_req, res) =>
     res.json({ status: 'ok', redis: cache.status() }),
   );
+  app.get('/api/internal/notifications', async (req, res) => {
+    const expected = Buffer.from(`Bearer ${config.cronSecret || ''}`),
+      actual = Buffer.from(req.get('authorization') || '');
+    if (
+      !config.cronSecret ||
+      actual.length !== expected.length ||
+      !timingSafeEqual(actual, expected)
+    )
+      throw new HttpError(401, 'Unauthorized.');
+    if (!emailEnabled(config)) {
+      res.json({ queued: 0, emailConfigured: false });
+      return;
+    }
+    const ids = (
+      await sql.query(
+        "SELECT id FROM gallery.notification_outbox WHERE (status='pending' AND available_at<=now()) OR (status='processing' AND lease_until<now()) ORDER BY created_at LIMIT 20",
+      )
+    ).rows.map((r) => String(r['id']));
+    // Wake only when real work exists; no synthetic Render keepalive.
+    defer(notifications.kick(ids));
+    res.json({ queued: ids.length });
+  });
   app.use('/api', authenticate(config, sql, security));
   app.use('/api', csrfGuard(config));
   app.use('/api/auth', authRoutes(config, sql, security, rateLimitEnabled));
-  app.use('/api', galleryRoutes(sql, artworks, storage, cache, security));
+  app.use(
+    '/api/notifications',
+    notificationRoutes(sql, config, notifications, defer),
+  );
+  app.use(
+    '/api',
+    galleryRoutes(
+      sql,
+      artworks,
+      storage,
+      cache,
+      security,
+      config,
+      notifications,
+      defer,
+    ),
+  );
   app.use('/api', (_req, _res) => {
     throw new HttpError(404, 'Endpoint not found.');
   });

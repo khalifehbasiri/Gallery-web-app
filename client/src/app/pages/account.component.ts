@@ -6,6 +6,13 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
+import type { NotificationPreferences } from '../../../../shared/contracts';
 import type { Account, Workshop } from '../../../../shared/contracts';
 import { AuthStore } from '../core/auth.store';
 import { ApiService } from '../core/api.service';
@@ -15,7 +22,12 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
 
 @Component({
   selector: 'app-account',
-  imports: [RouterLink, ArtCardComponent, WorkshopCardComponent],
+  imports: [
+    RouterLink,
+    ArtCardComponent,
+    WorkshopCardComponent,
+    ReactiveFormsModule,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page-width inner-page">
@@ -57,6 +69,88 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
       }
       @if (error()) {
         <p class="error" role="alert">{{ error() }}</p>
+      }
+      @if (preferences(); as settings) {
+        <section class="account-tools" aria-label="Email notifications">
+          <div>
+            <h3>Email notifications</h3>
+            @if (settings.publicDemo) {
+              <p>
+                Shared demo accounts cannot store personal email addresses.
+                Create your own account to try notifications.
+              </p>
+            } @else if (!settings.available) {
+              <p>
+                Email delivery is awaiting a verified sender. Your likes and
+                reviews are still saved normally.
+              </p>
+            } @else {
+              <p>
+                Get an appreciation email when someone likes your artwork.
+                Limited to one notice per hour; delivery can be delayed on free
+                hosting.
+              </p>
+              <form
+                [formGroup]="emailForm"
+                (ngSubmit)="requestEmail()"
+                class="review-form"
+              >
+                <label
+                  >Email address
+                  <input
+                    type="email"
+                    autocomplete="email"
+                    formControlName="email"
+                    maxlength="254"
+                    required
+                /></label>
+                <label
+                  ><input type="checkbox" formControlName="consent" /> I want
+                  appreciation emails. I can turn them off anytime.</label
+                >
+                <button
+                  class="button button-outline"
+                  [disabled]="busy() || emailForm.invalid"
+                >
+                  Send verification code
+                </button>
+              </form>
+              @if (settings.email && !settings.verified) {
+                <form class="review-form" (ngSubmit)="verifyEmail()">
+                  <label
+                    >Six-digit email code
+                    <input
+                      inputmode="numeric"
+                      autocomplete="one-time-code"
+                      maxlength="6"
+                      [formControl]="emailCode"
+                  /></label>
+                  <button
+                    class="button button-outline"
+                    [disabled]="busy() || emailCode.invalid"
+                  >
+                    Verify and enable emails
+                  </button>
+                </form>
+              }
+              @if (settings.enabled) {
+                <p>Appreciation emails enabled for {{ settings.email }}.</p>
+                <button
+                  class="text-button"
+                  [disabled]="busy()"
+                  (click)="disableEmails()"
+                >
+                  Turn off email notifications
+                </button>
+              } @else if (settings.verified) {
+                <p>Emails are off. Request a new code to enable them again.</p>
+              }
+            }
+            @if (emailMessage()) {
+              <p role="status">{{ emailMessage() }}</p>
+            }
+          </div>
+        </section>
       }
       <div class="account-tools">
         <div>
@@ -179,6 +273,75 @@ export class AccountComponent {
   readonly account = signal<Account | null>(null);
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly preferences = signal<NotificationPreferences | null>(null);
+  readonly emailMessage = signal('');
+  readonly emailForm = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.email],
+    }),
+    consent: new FormControl(false, {
+      nonNullable: true,
+      validators: Validators.requiredTrue,
+    }),
+  });
+  readonly emailCode = new FormControl('', {
+    nonNullable: true,
+    validators: [Validators.pattern(/^\d{6}$/), Validators.required],
+  });
+  private async loadPreferences() {
+    const settings = await firstValueFrom(this.api.notificationPreferences());
+    this.preferences.set(settings);
+    this.emailForm.controls.email.setValue(settings.email);
+  }
+  async requestEmail() {
+    if (this.busy() || this.emailForm.invalid) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      const result = await firstValueFrom(
+        this.api.requestEmail(
+          this.emailForm.controls.email.value,
+          this.emailForm.controls.consent.value,
+        ),
+      );
+      this.emailMessage.set(result.message);
+      await this.loadPreferences();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async verifyEmail() {
+    if (this.busy() || this.emailCode.invalid) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      await firstValueFrom(this.api.verifyEmail(this.emailCode.value));
+      this.emailCode.reset();
+      this.emailMessage.set(
+        'Email verified. Appreciation notifications are enabled.',
+      );
+      await this.loadPreferences();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+  async disableEmails() {
+    this.busy.set(true);
+    try {
+      await firstValueFrom(this.api.disableEmails());
+      this.emailMessage.set('Email notifications turned off.');
+      await this.loadPreferences();
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
   constructor() {
     void this.load();
   }
@@ -186,6 +349,7 @@ export class AccountComponent {
     try {
       this.account.set(await firstValueFrom(this.api.account()));
       this.sessions.set(await firstValueFrom(this.api.sessions()));
+      await this.loadPreferences();
     } catch (error) {
       this.error.set(errorMessage(error));
     }

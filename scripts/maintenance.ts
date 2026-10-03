@@ -29,11 +29,24 @@ try {
     const denials = await tx.query(
       'DELETE FROM gallery.token_denials WHERE expires_at < now()',
     );
+    const notifications = await tx.query(
+      "DELETE FROM gallery.notification_outbox WHERE status IN ('done','cancelled') AND finished_at<now()-interval '30 days'",
+    );
+    await tx.query(
+      "DELETE FROM gallery.email_webhooks WHERE created_at<now()-interval '30 days'",
+    );
+    await tx.query(
+      "DELETE FROM gallery.email_verification_limits WHERE window_started<now()-interval '7 days'",
+    );
+    await tx.query(
+      'UPDATE gallery.notification_preferences SET verification_hash=NULL WHERE verification_expires_at<now() AND verification_hash IS NOT NULL',
+    );
     return {
       tokens: tokens.rowCount,
       sessions: sessions.rowCount,
       denials: denials.rowCount,
       unusedUploads: unused.length,
+      completedNotifications: notifications.rowCount,
     };
   });
   console.log(JSON.stringify(counts));

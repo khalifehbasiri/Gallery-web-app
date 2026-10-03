@@ -21,6 +21,23 @@ import type {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+  notificationPreferences() {
+    return this.http.get<
+      import('../../../../shared/contracts').NotificationPreferences
+    >('/api/notifications');
+  }
+  requestEmail(email: string, consent: boolean) {
+    return this.http.post<{ message: string }>('/api/notifications/email', {
+      email,
+      consent,
+    });
+  }
+  verifyEmail(code: string) {
+    return this.http.post('/api/notifications/verify', { code });
+  }
+  disableEmails() {
+    return this.http.delete('/api/notifications');
+  }
   me() {
     return this.http.get<AuthResponse>('/api/auth/me');
   }

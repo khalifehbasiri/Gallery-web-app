@@ -1,0 +1,41 @@
+# A Free HTTP job processor, not a paid Render background-worker resource.
+services:
+  - type: web
+    name: gallery-notifications
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm ci && npm run build:api
+    startCommand: npm run worker
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_CA_CERT
+        sync: false
+      - key: NOTIFICATION_ENCRYPTION_KEY
+        sync: false
+      - key: NOTIFICATION_WORKER_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      - key: RESEND_PUBLIC_SENDING
+        value: 'false'
+      - key: RESEND_TEST_RECIPIENT
+        sync: false
+      - key: CLIENT_ORIGIN
+        value: https://gallery-web-app-two.vercel.app
+      - key: SUPABASE_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

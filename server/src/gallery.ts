@@ -25,12 +25,18 @@ import { reserveUpload, type ImageStorage } from './storage.js';
 import type { Sql } from './database.js';
 import type { DiscoveryCache } from './cache.js';
 import type { SecurityCache } from './security-cache.js';
+import type { Config } from './config.js';
+import { enqueueLike, type NotificationDispatch } from './notifications.js';
+import { publicDemoNames } from './public-demo.js';
 export function galleryRoutes(
   sql: Sql,
   store: ArtworkStore,
   storage: ImageStorage,
   cache: DiscoveryCache,
   security: SecurityCache,
+  config: Config,
+  notifications: NotificationDispatch,
+  defer: (work: Promise<void>) => void,
 ) {
   const router = Router();
   router.get('/stats', async (_req, res) => {
@@ -303,6 +309,11 @@ export function galleryRoutes(
     });
   });
   router.patch('/account', requireAuth, async (req, res) => {
+    if (config.production && publicDemoNames.has(req.user!.username))
+      throw new HttpError(
+        403,
+        'Public demo account roles are fixed. Create your own account to switch roles.',
+      );
     const role = textField(req.body, 'role', 10);
     if (!['artist', 'patron'].includes(role))
       throw new HttpError(400, 'Choose a patron or artist account.');
@@ -339,8 +350,8 @@ export function galleryRoutes(
     router[method]('/artworks/:id/like', requireAuth, async (req, res) => {
       const id = objectId(req.params['id']),
         liking = method === 'put';
-      const likeCount = await sql.transaction(async (tx) => {
-        await published(tx, id, true);
+      const result = await sql.transaction(async (tx) => {
+        const art = await published(tx, id, true);
         const changed = await tx.query(
           liking
             ? 'INSERT INTO gallery.likes (user_id,artwork_id) VALUES ($1,$2) ON CONFLICT DO NOTHING RETURNING artwork_id'
@@ -352,7 +363,17 @@ export function galleryRoutes(
             'UPDATE gallery.artworks SET like_count=like_count+$1 WHERE id=$2',
             [liking ? 1 : -1, id],
           );
-        return Number(
+        const jobs =
+          liking && changed.rows.length
+            ? await enqueueLike(
+                tx,
+                config,
+                req.user!.id,
+                req.user!.username,
+                art,
+              )
+            : [];
+        const likeCount = Number(
           (
             await tx.query(
               'SELECT like_count FROM gallery.artworks WHERE id=$1',
@@ -360,9 +381,11 @@ export function galleryRoutes(
             )
           ).rows[0]!['like_count'],
         );
+        return { likeCount, jobs };
       });
       await cache.invalidate();
-      res.json({ liked: liking, likeCount });
+      defer(notifications.kick(result.jobs));
+      res.json({ liked: liking, likeCount: result.likeCount });
     });
   }
   router.post('/artworks/:id/reviews', requireAuth, async (req, res) => {

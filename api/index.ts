@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
 import { createRuntime } from '../server/src/runtime.js';
+import { waitUntil } from '@vercel/functions';
 let runtime: ReturnType<typeof createRuntime> | undefined;
 // Reuse pools/SDK clients within a warm function; failed initialization is retryable.
 export default async function handler(req: Request, res: Response) {
   try {
-    runtime ??= createRuntime().catch((error) => {
+    runtime ??= createRuntime({ defer: waitUntil }).catch((error) => {
       runtime = undefined;
       throw error;
     });
