@@ -77,6 +77,8 @@ Built around established web application engineering practices, with reviewable 
 
 The [37-area engineering checklist](docs/APP_STANDARDS.md) maps every requested area to evidence and remaining work. Formal accessibility/legal review, dedicated alerts, automated backups and advanced SEO remain improvements. See [account lifecycle](docs/ACCOUNT_LIFECYCLE.md), [CI/CD](docs/CI_CD.md) and [technical legal readiness](docs/LEGAL_REVIEW.md).
 
+**CI/CD status:** the quality gate passes 78 backend and 17 Angular tests, formatting, production builds and the runtime dependency audit. Automatic production deployment still requires GitHub secrets `VERCEL_TOKEN` and `RENDER_DEPLOY_HOOK`; local Vercel login does not configure GitHub's runner. The current live release was deployed manually. See [deployment setup, test coverage and everyday workflow usage](docs/CI_CD.md).
+
 ### Account email, recovery and privacy
 
 Signup requires a private email and terms acknowledgement; notification consent is separate and unchecked by default. Existing users can add an email after password confirmation. Verification enables recovery; optional notifications can be disabled or re-enabled independently. Shared demos cannot store private email, reset passwords or be deleted.
