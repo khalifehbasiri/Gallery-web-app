@@ -73,7 +73,7 @@ Built around established web application engineering practices, with reviewable 
 | Authentication / account lifecycle | Strict HttpOnly JWT/opaque refresh cookies, single-use recovery, session revocation and email consent         |
 | Privacy controls                   | Public notices, versioned acknowledgement, password-confirmed export/deletion and retention                   |
 | Cloud delivery / storage           | Vercel CDN, private signed staging, durable object storage and separate Render processor                      |
-| Quality / delivery                 | Security/failure tests, real MongoDB/Redis integration, builds, formatting and gated CI/CD                    |
+| Docker / quality / delivery        | Docker Redis service container, real database integration tests, builds, formatting and gated CI/CD           |
 
 The [37-area engineering checklist](docs/APP_STANDARDS.md) maps every requested area to evidence and remaining work. Formal accessibility/legal review, dedicated alerts, automated backups and advanced SEO remain improvements. See [account lifecycle](docs/ACCOUNT_LIFECYCLE.md), [CI/CD](docs/CI_CD.md) and [technical legal readiness](docs/LEGAL_REVIEW.md).
 
@@ -93,7 +93,23 @@ The app already uses both: **object storage keeps image bytes durably; a CDN del
 
 ### CI/CD
 
-Pull requests/main pushes run installation, formatting, API/Angular tests, production build and a high/critical runtime audit. CI uses isolated SQL/MongoDB and runner-local Redis, without production database/email credentials. Main releases stage a prebuilt Vercel artifact, smoke-check it and promote that artifact; a Render hook deploys the tested revision. Vercel automatic Git deployment is disabled to prevent bypassing checks. Dedicated GitHub deployment secrets and Gallery Render Auto-Deploy settings need owner setup; missing credentials fail explicitly. [Pipeline setup and verification](docs/CI_CD.md).
+Pull requests/main pushes run installation, formatting, API/Angular tests, production build and a high/critical runtime audit. CI uses isolated SQL/MongoDB and runner-local Redis, without production database/email credentials. Main releases stage a prebuilt Vercel artifact, smoke-check it and promote that artifact; a Render hook deploys the tested revision. Vercel automatic Git deployment is disabled to prevent bypassing checks. Deployment secrets and Gallery's Render Auto-Deploy Off setting are configured; missing credentials or failed permission checks stop a release explicitly. [Pipeline setup and verification](docs/CI_CD.md).
+
+### Docker: isolated Redis integration tests
+
+Docker runs software in containers: isolated processes created from an **image**, a packaged filesystem containing the software and its dependencies. Containers share the host kernel; they do not each boot a complete virtual machine. This project uses the published `redis:7.4.2` image in [the GitHub Actions workflow](.github/workflows/ci.yml), with a fixed version tag for consistent integration tests. The tag is not a cryptographic image digest. See [Docker's overview](https://docs.docker.com/get-started/docker-overview/).
+
+The pipeline uses Docker as follows:
+
+1. GitHub creates an Ubuntu runner and a fresh Redis service container for the quality job.
+2. A `redis-cli ping` health check confirms readiness; port `6379` connects the runner's Node.js tests to `TEST_REDIS_URL=redis://127.0.0.1:6379`.
+3. Integration tests exercise real Redis cache expiry/invalidation, authorization revocation fences and deduplicated notification queue consumption. SQL uses PGlite; MongoDB tests start a temporary MongoDB binary separately.
+4. GitHub removes the Redis container after the job, including failed jobs. Test data is disposable; no production Redis credentials are used.
+5. Only a passing main revision proceeds to Vercel staging/smoke checks/promotion and the Render deploy hook. Docker supplies a test dependency; GitHub Actions controls the release gate. See [GitHub service containers](https://docs.github.com/en/actions/tutorials/use-containerized-services/use-docker-service-containers).
+
+The application is deployed through Vercel's build output and Render's Node.js runtime. This repository has no application Dockerfile, Compose stack or image-registry release. Docker is not required to run the isolated portfolio demo. The demonstrated Docker skill is configuring disposable CI service containers and testing real dependency behavior.
+
+At larger companies, a common additional pattern is to build an application image from a Dockerfile, test and scan it in CI, publish it to a registry, and deploy that exact image digest through staging and production. This makes the application package consistent across environments and identifies a previous image for rollback. Orchestrators such as Kubernetes manage replicas and rolling updates; database durability, resource limits and load testing still require separate design. That is a potential future deployment model, beyond this project's current Docker use. See [Docker's CI tooling](https://docs.docker.com/build/ci/github-actions/) and [Kubernetes deployments](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
 
 ### Following and Explore feeds
 

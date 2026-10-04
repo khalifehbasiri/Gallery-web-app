@@ -24,6 +24,14 @@ Earlier releases were staged, checked and promoted manually through the signed-i
 
 Pull requests never receive production secrets. Production jobs run only on main after quality succeeds. No test suite uses the live application database or sends real email. The ephemeral Redis container belongs to the CI runner; application hosting does not require Docker.
 
+### Docker's role in this pipeline
+
+The quality job's `services.redis` block is an actual Docker service container using `redis:7.4.2`. GitHub starts it on the Ubuntu runner, waits for its `redis-cli ping` health check and exposes port 6379 to the Node.js tests through `TEST_REDIS_URL`. A fresh container gives every job disposable Redis state; GitHub destroys it when that job completes. Tests use namespaced keys and exercise expiry/invalidation, cross-instance revocation fences and competing notification consumers against real Redis. See [GitHub's Docker service-container documentation](https://docs.github.com/en/actions/tutorials/use-containerized-services/use-docker-service-containers).
+
+The Redis version tag is fixed, but not an immutable digest. Updating it requires reviewing Redis compatibility and rerunning integration checks. CI SQL and MongoDB have different test lifecycles: PGlite provides isolated SQL, while mongodb-memory-server starts a temporary MongoDB binary. The application build/tests run directly on the runner, not in an application container.
+
+Docker supports **CI** here by supplying a reproducible test dependency. The **CD** job depends on the entire quality job succeeding, but publishes Vercel build output and invokes Render's Node.js service hook; it does not build or publish an application Docker image. The Redis test container is never promoted to production. Production caching continues to use Upstash. See the README's [Docker explanation](../README.md#docker-isolated-redis-integration-tests) for the larger-company image/registry/orchestrator pattern and this project's implementation boundary.
+
 The current suite includes 78 backend and 17 Angular tests:
 
 | Area                    | Examples of behavior tested                                                                                                                                           |
