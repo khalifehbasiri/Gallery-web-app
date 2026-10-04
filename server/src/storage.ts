@@ -76,7 +76,8 @@ export function supabaseStorage(config: Config): ImageStorage {
       const uploaded = await publicBucket.upload(path, data!, {
         contentType: data!.type,
         upsert: false,
-        cacheControl: '31536000',
+        // Public images remain cacheable, with a shorter window after deletion.
+        cacheControl: '3600',
       });
       if (uploaded.error) throw uploaded.error;
       // Remove the staging copy after promotion; failure cannot affect public authorization.

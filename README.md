@@ -83,7 +83,7 @@ Account settings offer password-confirmed JSON export and deletion. Deletion imm
 
 ### CDN and object storage
 
-The app already uses both: **object storage keeps image bytes durably; a CDN delivers assets nearer to visitors**. Vercel supplies the frontend CDN. Supabase Storage holds private staging and public images, whose URLs benefit from its CDN. Immutable paths avoid overwriting cached images. API responses remain `private, no-store`, with application caching in Redis. No additional CDN/storage subscription is needed. See [Supabase asset delivery](https://supabase.com/docs/guides/storage/serving/downloads).
+The app already uses both: **object storage keeps image bytes durably; a CDN delivers assets nearer to visitors**. Vercel supplies the frontend CDN. Supabase Storage holds private staging and public images, whose URLs benefit from its CDN. Immutable paths avoid overwriting cached images; new uploads use a one-hour cache lifetime to reduce removal latency. API responses remain `private, no-store`, with application caching in Redis. No additional CDN/storage subscription is needed. See [Supabase asset delivery](https://supabase.com/docs/guides/storage/serving/downloads).
 
 ### CI/CD
 

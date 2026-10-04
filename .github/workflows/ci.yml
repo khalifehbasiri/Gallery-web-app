@@ -51,8 +51,12 @@ jobs:
           node-version: 22.14.0
           cache: npm
       - name: Require deployment configuration
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
-          test -n "$VERCEL_TOKEN" && test -n "$VERCEL_ORG_ID" && test -n "$VERCEL_PROJECT_ID"
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID RENDER_DEPLOY_HOOK; do
+            if [ -z "${!key}" ]; then echo "::error::Missing deployment setting: $key"; exit 1; fi
+          done
       - run: npm ci
       - run: npm install --global vercel@50.5.0
       - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
