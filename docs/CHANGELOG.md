@@ -1,5 +1,12 @@
 # Modernization change log
 
+## Real artwork and consistent icons
+
+- Replaced bundled sample illustrations with 24 verified CC0 images from The Met, source credits, image-specific alternative text and immutable content-digest filenames.
+- Updated demo collection metadata, labeled replacement images on preserved original records, and added a backed-up, resumable MongoDB/PostgreSQL repair command.
+- Replaced Unicode decorative icons with a shared typed inline SVG component across navigation, forms, feeds, profiles and artwork controls.
+- Added file-integrity and attribution regressions, updated the portfolio preview, and documented image rights and CDN delivery.
+
 ## Community follows and cached feeds
 
 - Generalized following to artists and patrons, with a searchable People directory and compatible legacy profile routes.

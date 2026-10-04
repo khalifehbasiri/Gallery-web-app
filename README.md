@@ -6,7 +6,7 @@ A full-stack art community built with Angular 21, TypeScript, RxJS, NgRx SignalS
 
 MongoDB Atlas stores artwork documents. Supabase PostgreSQL stores accounts, relationships and security records; Supabase Storage serves validated images. Upstash Redis caches public data and accelerates durable authorization checks. Angular and Express share one origin on Vercel.
 
-![Atelier preview using isolated sample data](docs/preview.png)
+![Atelier preview with public-domain artwork in the isolated demo](docs/preview.png)
 
 ## Run the isolated portfolio demo
 
@@ -27,7 +27,9 @@ Open [localhost:3000](http://localhost:3000). No cloud credentials or external d
 
 These public credentials work in both the live app and the isolated demo. Shared accounts are for portfolio testing; do not put personal information into them.
 
-The hosted catalog was restored from the original `JSON/` fixtures: 24 artworks by 11 original artists, plus six labeled portfolio samples, the two demo accounts, and one workshop. Six original images were recovered into Supabase Storage. Eighteen unavailable images use sample illustrations with an image note in the artwork description. The old MongoDB server was unreachable, so former user activity was not recovered or invented.
+The hosted catalog preserves the 24 original `JSON/` artwork records and 11 original artist accounts, alongside six demo collection entries, the two demo accounts, and one workshop. Six recovered original images remain in Supabase Storage. Eighteen records with unavailable originals now show explicitly labeled, separately credited public-domain **reference images**, not reproductions of the missing works. The six demo entries display actual artwork titles, dates, media and creators from The Met; Maya Laurent is their demo account owner, not their creator. The old MongoDB server was unreachable, so former user activity was not recovered or invented.
+
+The landing page, sign-in page and demo collection use real artwork from [The Met Open Access collection](https://www.metmuseum.org/hubs/open-access). Twenty-four CC0 JPEGs are bundled locally with source links and SHA-256 digests. Vercel serves these assets through its CDN; normal user uploads continue to use Supabase Storage. Images load lazily outside the hero, and consistent inline SVG icons replace emoji and decorative text symbols. See [image credits and the repeatable catalog repair](docs/ARTWORK_IMAGES.md).
 
 The repeatable operator seed is `node --env-file=.env --import tsx scripts/seed-hosted.ts` with an HTTPS `CLIENT_ORIGIN`. It keeps its prepared snapshot in ignored `exports/hosted-catalog.json`, preserves existing accounts and artwork, and never runs during deployment. Other artist accounts have unknown random passwords; only the two public demo passwords are published.
 
