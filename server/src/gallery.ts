@@ -28,6 +28,7 @@ import type { SecurityCache } from './security-cache.js';
 import type { Config } from './config.js';
 import { enqueueLike, type NotificationDispatch } from './notifications.js';
 import { publicDemoNames } from './public-demo.js';
+import { Feeds, followingLimit } from './feeds.js';
 export function galleryRoutes(
   sql: Sql,
   store: ArtworkStore,
@@ -39,6 +40,69 @@ export function galleryRoutes(
   defer: (work: Promise<void>) => void,
 ) {
   const router = Router();
+  const feeds = new Feeds(sql, cache, config);
+  router.get('/feeds/explore', async (req, res) => {
+    const result = await feeds.page('explore', req.user?.id, req.query);
+    res
+      .set({ 'X-Cache': result.status, 'X-Feed-Candidates': result.poolStatus })
+      .json(result.value);
+  });
+  router.get('/feeds/following', requireAuth, async (req, res) => {
+    const result = await feeds.page('following', req.user!.id, req.query);
+    res
+      .set({ 'X-Cache': result.status, 'X-Feed-Candidates': result.poolStatus })
+      .json(result.value);
+  });
+  router.get('/people', async (req, res) => {
+    if (
+      Object.keys(req.query).some(
+        (key) => !['search', 'page', 'limit'].includes(key),
+      )
+    )
+      throw new HttpError(400, 'Unknown people filter.');
+    const search = req.query['search']
+      ? textField(req.query, 'search', 120).toLowerCase()
+      : '';
+    const { page, limit, skip } = pageParameters(req.query);
+    const result = await cache.remember(
+      `people:v1:${JSON.stringify({ search, page, limit })}`,
+      async () => {
+        const where =
+          'deletion_requested_at IS NULL AND position($1 in lower(username))>0';
+        const rows = (
+          await sql.query(
+            `SELECT id,username,role FROM gallery.users WHERE ${where} ORDER BY lower(username),id LIMIT $2 OFFSET $3`,
+            [search, limit, skip],
+          )
+        ).rows;
+        const total = Number(
+          (
+            await sql.query(
+              `SELECT count(*)::int AS total FROM gallery.users WHERE ${where}`,
+              [search],
+            )
+          ).rows[0]!['total'],
+        );
+        return {
+          items: rows.map((row) => publicUser(userDto(row))),
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+        };
+      },
+    );
+    const following = new Set(
+      req.user ? await feeds.following(req.user.id) : [],
+    );
+    res.set('X-Cache', result.status).json({
+      ...result.value,
+      items: result.value.items.map((person) => ({
+        ...person,
+        following: following.has(person.id),
+      })),
+    });
+  });
   router.get('/stats', async (_req, res) => {
     const result = await cache.remember('stats', async () => {
       const r = (
@@ -188,7 +252,7 @@ export function galleryRoutes(
       },
     });
   });
-  router.get('/artists/:id', async (req, res) => {
+  router.get(['/artists/:id', '/people/:id'], async (req, res) => {
     const id = objectId(req.params['id']);
     const result = await cache.remember(`artist:${id}`, async () => {
       const user = publicUser(
@@ -196,11 +260,11 @@ export function galleryRoutes(
           requireDocument(
             (
               await sql.query(
-                'SELECT id,username,role FROM gallery.users WHERE id=$1',
+                'SELECT id,username,role FROM gallery.users WHERE id=$1 AND deletion_requested_at IS NULL',
                 [id],
               )
             ).rows[0],
-            'Artist not found.',
+            'Person not found.',
           ),
         ),
       );
@@ -331,26 +395,55 @@ export function galleryRoutes(
     });
   });
   for (const method of ['put', 'delete'] as const) {
-    router[method]('/artists/:id/follow', requireAuth, async (req, res) => {
-      const id = objectId(req.params['id']);
-      const artist = requireDocument(
-        (await sql.query('SELECT role FROM gallery.users WHERE id=$1', [id]))
-          .rows[0],
-        'Artist not found.',
-      );
-      if (
-        method === 'put' &&
-        (artist['role'] !== 'artist' || id === req.user!.id)
-      )
-        throw new HttpError(400, 'Choose another artist to follow.');
-      await sql.query(
-        method === 'put'
-          ? 'INSERT INTO gallery.follows (user_id,artist_id) VALUES ($1,$2) ON CONFLICT DO NOTHING'
-          : 'DELETE FROM gallery.follows WHERE user_id=$1 AND artist_id=$2',
-        [req.user!.id, id],
-      );
-      res.json({ following: method === 'put' });
-    });
+    router[method](
+      ['/artists/:id/follow', '/people/:id/follow'],
+      requireAuth,
+      async (req, res) => {
+        const id = objectId(req.params['id']);
+        if (id === req.user!.id)
+          throw new HttpError(400, 'Choose another person to follow.');
+        await sql.transaction(async (tx) => {
+          // Ordered locks serialize the bounded follow count and account retirement.
+          const people = (
+            await tx.query(
+              'SELECT id FROM gallery.users WHERE id=ANY($1::text[]) AND deletion_requested_at IS NULL ORDER BY id FOR UPDATE',
+              [[req.user!.id, id]],
+            )
+          ).rows;
+          if (people.length !== 2)
+            throw new HttpError(404, 'Person not found.');
+          if (method === 'put') {
+            const existing = (
+              await tx.query(
+                'SELECT 1 FROM gallery.follows WHERE user_id=$1 AND artist_id=$2',
+                [req.user!.id, id],
+              )
+            ).rows.length;
+            const count = Number(
+              (
+                await tx.query(
+                  'SELECT count(*)::int AS total FROM gallery.follows WHERE user_id=$1',
+                  [req.user!.id],
+                )
+              ).rows[0]!['total'],
+            );
+            if (!existing && count >= followingLimit)
+              throw new HttpError(
+                400,
+                `You can follow up to ${followingLimit} people in this portfolio app.`,
+              );
+          }
+          await tx.query(
+            method === 'put'
+              ? 'INSERT INTO gallery.follows (user_id,artist_id) VALUES ($1,$2) ON CONFLICT DO NOTHING'
+              : 'DELETE FROM gallery.follows WHERE user_id=$1 AND artist_id=$2',
+            [req.user!.id, id],
+          );
+        });
+        await cache.invalidate();
+        res.json({ following: method === 'put' });
+      },
+    );
     router[method]('/artworks/:id/like', requireAuth, async (req, res) => {
       const id = objectId(req.params['id']),
         liking = method === 'put';
@@ -588,6 +681,15 @@ export function galleryRoutes(
       };
       await publish(sql, store, art);
       await cache.invalidate();
+      defer(
+        feeds
+          .prime()
+          .catch(() =>
+            console.warn(
+              'Feed cache warming deferred; database fallback remains available.',
+            ),
+          ),
+      );
       res.status(201).json({
         ...art,
         artist: req.user!.username,

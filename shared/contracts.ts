@@ -40,6 +40,17 @@ export interface Page<T> {
   pages: number;
 }
 
+export type FeedMode = 'following' | 'explore';
+export interface FeedPage {
+  items: ArtworkSummary[];
+  nextCursor: string | null;
+  source: FeedMode;
+  followingCount: number;
+}
+export interface Person extends User {
+  following: boolean;
+}
+
 export interface GalleryQuery {
   search: string;
   category: string;
