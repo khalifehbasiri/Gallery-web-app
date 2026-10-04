@@ -53,6 +53,41 @@ Angular runs at [localhost:4200](http://localhost:4200), proxying `/api` to Expr
 - Ten-minute JWTs and separate rotating opaque refresh secrets in Strict HttpOnly cookies; hashed refresh storage, CSRF proofs, replay detection and device/session revocation.
 - Direct signed image uploads with private staging, MIME/size/signature checks and a 5 MB limit.
 - Repeatable migration tooling, an isolated PostgreSQL demo, automated security tests and live cloud verification.
+- Email-based registration, verified-email recovery, notification opt-out, password-confirmed export and retryable account deletion.
+- GitHub Actions quality checks and staged deployment, with production credentials excluded from pull-request jobs.
+
+## Engineering practices and evidence
+
+Built around established web application engineering practices, with reviewable implementation and explicit operating limits. This demonstrates practical full-stack engineering; it is not a universal certification or an unlimited-scale claim.
+
+| Capability                         | Concrete evidence                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Angular / RxJS / NgRx              | Lazy standalone routes, reactive forms, SignalStore and cancellation of outdated searches                     |
+| Node.js / Express / TypeScript     | Typed REST contracts, runtime validation and server-side ownership/role checks                                |
+| MongoDB / PostgreSQL               | Validated documents, normalized relationships, indexed discovery, transactions and publication reconciliation |
+| Redis / asynchronous work          | Public cache isolation, revocation fences, throttling and SQL-backed notification outbox                      |
+| Authentication / account lifecycle | Strict HttpOnly JWT/opaque refresh cookies, single-use recovery, session revocation and email consent         |
+| Privacy controls                   | Public notices, versioned acknowledgement, password-confirmed export/deletion and retention                   |
+| Cloud delivery / storage           | Vercel CDN, private signed staging, durable object storage and separate Render processor                      |
+| Quality / delivery                 | Security/failure tests, real MongoDB/Redis integration, builds, formatting and gated CI/CD                    |
+
+The [37-area engineering checklist](docs/APP_STANDARDS.md) maps every requested area to evidence and remaining work. Formal accessibility/legal review, dedicated alerts, automated backups and advanced SEO remain improvements. See [account lifecycle](docs/ACCOUNT_LIFECYCLE.md), [CI/CD](docs/CI_CD.md) and [technical legal readiness](docs/LEGAL_REVIEW.md).
+
+### Account email, recovery and privacy
+
+Signup requires a private email and terms acknowledgement; notification consent is separate and unchecked by default. Existing users can add an email after password confirmation. Verification enables recovery; optional notifications can be disabled or re-enabled independently. Shared demos cannot store private email, reset passwords or be deleted.
+
+Password reset uses a separate random 32-byte secret. PostgreSQL stores its SHA-256 hash; a 30-minute single-use challenge and encrypted delivery job commit together. The email fragment is removed by Angular before a CSRF-protected POST. Reset replaces the scrypt hash, consumes challenges and revokes all sessions through the Redis fence, then requires login. Unknown addresses receive the same request response. Sender configuration is still required for real delivery.
+
+Account settings offer password-confirmed JSON export and deletion. Deletion immediately retires access and hides public entries, then leases/checkpoints MongoDB, Storage and SQL cleanup. Failed cleanup is retried, including a final image sweep after signed upload links expire. Daily maintenance enforces retention windows. Historical snapshots/provider backups still need operator handling; a qualified legal review is pending. [Details and limits](docs/ACCOUNT_LIFECYCLE.md).
+
+### CDN and object storage
+
+The app already uses both: **object storage keeps image bytes durably; a CDN delivers assets nearer to visitors**. Vercel supplies the frontend CDN. Supabase Storage holds private staging and public images, whose URLs benefit from its CDN. Immutable paths avoid overwriting cached images. API responses remain `private, no-store`, with application caching in Redis. No additional CDN/storage subscription is needed. See [Supabase asset delivery](https://supabase.com/docs/guides/storage/serving/downloads).
+
+### CI/CD
+
+Pull requests/main pushes run installation, formatting, API/Angular tests, production build and a high/critical runtime audit. CI uses isolated SQL/MongoDB and runner-local Redis, without production database/email credentials. Main releases stage a prebuilt Vercel artifact, smoke-check it and promote that artifact; a Render hook deploys the tested revision. Vercel automatic Git deployment is disabled to prevent bypassing checks. Dedicated GitHub deployment secrets and Gallery Render Auto-Deploy settings need owner setup; missing credentials fail explicitly. [Pipeline setup and verification](docs/CI_CD.md).
 
 ## Design decisions: what goes where, and why
 
@@ -186,7 +221,7 @@ npm run test:redis
 npm run maintenance
 ```
 
-Live Redis tests require `TEST_REDIS_URL` or `TEST_UPSTASH_REDIS_REST_URL` and `TEST_UPSTASH_REDIS_REST_TOKEN` in ignored `.env.test`. Ordinary tests use isolated in-memory PostgreSQL and cache adapters. Maintenance removes expired security records and up to 100 expired unused uploads; it preserves ambiguous publications for reconciliation.
+Live Redis tests require `TEST_REDIS_URL` or `TEST_UPSTASH_REDIS_REST_URL` and `TEST_UPSTASH_REDIS_REST_TOKEN` in ignored `.env.test`. Ordinary tests use isolated in-memory PostgreSQL and cache adapters. Maintenance removes expired security records and bounded expired unused uploads; it preserves ambiguous publications for reconciliation.
 
 Verification also covers both hosted demo logins, all 30 image URLs, a repeat seed run, processor endpoint authentication, and the processor SQL role's inability to read users/sessions/refresh records. The Supabase security advisor reported no findings. Unused-index notices on this small new catalog are informational; retain the intended access-path indexes and measure with real traffic before removing them. There is no fabricated large-scale load benchmark.
 
@@ -196,6 +231,6 @@ The production dependency audit reports zero vulnerabilities. The full audit cur
 
 The live API uses the native MongoDB driver. Mongoose remains a development dependency for the explicit read-only legacy exporter. Existing source data and `uploads/` are preserved. The hosted database is populated from the recovered catalog described above. Migrating additional original activity requires a reachable legacy database and an operator-reviewed snapshot. Tests use a real temporary MongoDB 8 server; its binary downloads on the first test run, not during production installation. See [migration and rollback](docs/MIGRATION.md).
 
-This portfolio deployment uses free plans. Free quotas, cold starts, provider outages and inactive-project suspension still apply. Requests are bounded to avoid unnecessary database work; this is not an unlimited-capacity service. Monitor provider dashboards, run maintenance regularly, and keep manual backups. No paid upgrades, Google billing account, Docker or custom CI pipeline are configured.
+This portfolio deployment uses free plans. Free quotas, cold starts, provider outages and inactive-project suspension still apply. Requests are bounded to avoid unnecessary database work; this is not an unlimited-capacity service. Monitor provider dashboards, run maintenance regularly, and keep manual backups. No paid upgrades, Google billing account or Docker application hosting are configured. The GitHub Actions pipeline is documented above.
 
 Read [architecture](docs/ARCHITECTURE.md), [API](docs/API.md), [security](docs/SECURITY.md), [Redis](docs/REDIS.md), [deployment](docs/DEPLOYMENT.md) and [change history](docs/CHANGELOG.md) for details.

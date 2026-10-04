@@ -44,3 +44,5 @@ Mongoose remains only for read-only legacy export; production uses the native Mo
 # Notification extension
 
 Like persistence remains synchronous and transactional. An eligible email event is inserted into the PostgreSQL outbox in that same transaction. Redis stores event UUID hints after commit; a Render Free HTTP processor leases SQL jobs, checks consent/suppression/budget and sends through Resend. No email or refresh secret is stored in Redis. The mail processor has a restricted SQL role and a separate payload-encryption key, and receives no JWT signing or artwork-storage secrets. See [notification design and operations](NOTIFICATIONS.md) and the expanded [README](../README.md).
+
+Account verification and recovery share the durable encrypted outbox with challenge-specific eligibility independent of optional consent. A separate SQL deletion manifest leases/checkpoints MongoDB/Storage removals after immediate retirement; daily maintenance retries it and expires security/mail records. See [account lifecycle](ACCOUNT_LIFECYCLE.md) and [CI/CD](CI_CD.md).

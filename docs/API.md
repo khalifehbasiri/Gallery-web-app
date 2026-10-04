@@ -54,3 +54,20 @@ All account routes require authentication and the usual CSRF proof for mutations
 | DELETE | `/api/notifications`        | Disable notices and invalidate outstanding verification.            |
 
 `GET/POST /api/notifications/unsubscribe` accepts a signed, version-bound opt-out capability; GET does not mutate. `POST /api/notifications/webhook` verifies the Resend/Svix signature over raw bytes instead of using browser CSRF. `GET /api/internal/notifications` requires `Authorization: Bearer <CRON_SECRET>` and wakes the processor only for due SQL jobs. The Render processor's `POST /jobs/process` requires its separate worker secret.
+
+## Account lifecycle extension
+
+All browser mutations require the same origin and signed CSRF proof, including anonymous recovery. Registration now requires `username`, `email`, `password`, `acceptedTerms: true` and optional `notifications: false`. Email is private and uniquely indexed; existing usernames still log in.
+
+| Method/path                    | Behavior                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| POST /api/auth/forgot-password | Email; generic 202 regardless of account eligibility, bounded address/IP attempts                    |
+| POST /api/auth/reset-password  | Single-use token + new password; revoke all sessions, clear cookies, require login                   |
+| POST /api/auth/verify-email    | Single-use token; verify current email, enable notifications only with active consent                |
+| GET /api/account/identity      | Owned private email/verification status, sender availability and demo restriction                    |
+| POST /api/account/email        | Current password + email; save/change and request verification; old challenges invalidated on change |
+| PATCH /api/notifications       | Boolean enabled; opt-out clears active consent, opt-in needs verified linked email                   |
+| POST /api/account/export       | Current password; attachment JSON excluding credential material; oversized exports return 413        |
+| DELETE /api/account            | Current password + confirmation DELETE; 202 retirement with durable cleanup                          |
+
+The authenticated daily `/api/internal/notifications` cron also runs bounded retention/deletion maintenance even when email sending is disabled. Recovery/verification require a configured sender; registration remains available while email delivery is disabled. See [account lifecycle](ACCOUNT_LIFECYCLE.md).

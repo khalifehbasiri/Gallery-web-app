@@ -35,16 +35,20 @@ npm run format:check
 vercel deploy --prod
 ```
 
-The project is linked to GitHub; future main pushes can trigger Vercel builds using the same production variables. The production root requires the rewrite `/api/(.*)` to `/api/index`; named wildcard captures can otherwise become unknown query filters. CSP/security headers cover the static frontend as well as API responses. A successful build alone is not deployment verification.
+The project is linked to GitHub; GitHub Actions now gates main releases; automatic Vercel Git deployments are disabled. Configure the dedicated deployment secrets described in CI_CD.md. The production root requires the rewrite `/api/(.*)` to `/api/index`; named wildcard captures can otherwise become unknown query filters. CSP/security headers cover the static frontend as well as API responses. A successful build alone is not deployment verification.
 
 ## Verification and maintenance
 
 Check `/api/health`, `/api/stats`, paginated discovery, registration/login, direct signed upload, review/like changes, refresh and logout after deployment. Inspect browser console/CSP failures and provider logs. Health reports runtime initialization/cache status, not exhaustive dependency readiness.
 
-`npm run maintenance` removes expired refresh records, expired sessions without remaining refresh records, expired jti denials, and up to 100 expired unused uploads. Run it regularly from an authenticated operator machine; no paid scheduler is configured. It does not erase used/ambiguous publication objects. Review those and abandoned migration assets in Storage periodically. Never remove a referenced public object.
+`npm run maintenance` removes expired refresh records, expired sessions without remaining refresh records, expired jti denials, and up to ten expired unused uploads after their signed upload capabilities expire. The existing daily authenticated cron also runs bounded retention/deletion maintenance; operators can run the command to process backlogs. No paid scheduler is configured. It does not erase used/ambiguous publication objects. Review those and abandoned migration assets in Storage periodically. Never remove a referenced public object.
 
 For a pending publication: inspect its SQL row and MongoDB document by ID. If both match and the image exists, complete publication and invalidate Redis. If the document/image is missing, repair from the retained snapshot or remove the pending registry and unreferenced resources. Stop writes during manual reconciliation. Security mutations must use the fenced protocol; see [Redis](REDIS.md). Preserve manual SQL/document/image exports before changes; no paid managed backups are enabled.
 
 The initial deployment used Firestore and was checked against all hosted stores and real Redis. The gallery was subsequently populated with the original 24 artwork fixture records, six portfolio samples, 13 accounts and one workshop. Six original images were recovered; 18 fixture images have labeled substitutions. All 30 current artwork documents were then copied and verified in MongoDB, preserving SQL accounts, activity and image references. Legacy MongoDB was unreachable during the original restoration, so historical account activity could not be recovered. [Migration](MIGRATION.md) covers both the new cutover and the legacy exporter.
 
-Notification deployment uses [the separate processor and sender setup](NOTIFICATIONS.md). A free daily Vercel recovery check is configured for real due jobs; routine storage/security maintenance remains an operator command. Public demo account roles are fixed, and they cannot store personal email addresses or produce mail jobs.
+Notification deployment uses [the separate processor and sender setup](NOTIFICATIONS.md). A free daily Vercel recovery check is configured for real due jobs; routine retention/deletion maintenance now shares that daily check, with an operator command for backlogs. Public demo account roles are fixed, and they cannot store personal email addresses or produce mail jobs.
+
+## Account lifecycle release
+
+Apply the additive account_lifecycle migration before this release. It preserves legacy/demo logins, adds private unique emails and consent/terms records, hashed recovery challenges, restricted processor access and durable deletion cleanup. The daily cron now processes bounded retention/deletion work even with email disabled. Signup email verification and recovery delivery still require an owned sender. CI/CD credentials and Gallery Render Auto-Deploy settings are operator setup steps; see [CI/CD](CI_CD.md).

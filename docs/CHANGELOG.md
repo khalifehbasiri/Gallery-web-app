@@ -1,5 +1,14 @@
 # Modernization change log
 
+## Account lifecycle, privacy controls and quality-gated delivery
+
+- Added private signup email, versioned terms acknowledgement, separate notification consent and ownership verification.
+- Added expiring, single-use password recovery with hashed secrets, encrypted delivery and full session revocation.
+- Added password-confirmed export and retirement/deletion with leased checkpointed MongoDB/Storage cleanup.
+- Added public privacy/terms pages, daily retention processing and a technical legal readiness report with explicit review gaps.
+- Added isolated GitHub Actions quality checks, staged Vercel promotion, Render hook release configuration and Dependabot.
+- Added evidence-linked engineering standards documentation and regression tests; no universal compliance claim.
+
 ## MongoDB document-store cutover and diagram repair
 
 - Fixed the Mermaid sequence diagram's unescaped semicolon and validated all three documented diagrams with the Mermaid parser.
