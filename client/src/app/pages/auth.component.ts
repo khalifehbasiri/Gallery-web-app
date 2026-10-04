@@ -61,6 +61,30 @@ import { errorMessage } from '../core/errors';
             placeholder="Your password"
           />
           @if (registering) {
+            <label for="signup-email">Email address</label>
+            <input
+              id="signup-email"
+              type="email"
+              autocomplete="email"
+              formControlName="email"
+              maxlength="254"
+            />
+            <p class="field-hint">
+              Used for account verification and password recovery. Optional
+              artwork notifications require your consent.
+            </p>
+            <label
+              ><input type="checkbox" formControlName="notifications" /> Email
+              me when someone likes my artwork. I can turn this off
+              anytime.</label
+            >
+            <label
+              ><input type="checkbox" formControlName="acceptedTerms" /> I
+              accept the <a routerLink="/terms">terms</a> and acknowledge the
+              <a routerLink="/privacy">privacy notice</a>.</label
+            >
+          }
+          @if (registering) {
             <p class="field-hint">
               Use at least 8 characters. Your account starts as a patron; you
               can become an artist in your collection.
@@ -79,6 +103,9 @@ import { errorMessage } from '../core/errors';
             }}
           </button>
         </form>
+        @if (!registering) {
+          <p><a routerLink="/forgot-password">Forgot your password?</a></p>
+        }
         <p class="form-switch">
           {{
             registering ? 'Already part of the community?' : 'New around here?'
@@ -106,6 +133,14 @@ export class AuthComponent {
         Validators.maxLength(256),
       ],
     ],
+    email: [
+      '',
+      this.registering
+        ? [Validators.required, Validators.email, Validators.maxLength(254)]
+        : [],
+    ],
+    acceptedTerms: [false, this.registering ? [Validators.requiredTrue] : []],
+    notifications: [false],
   });
   readonly error = signal('');
   readonly busy = signal(false);
@@ -114,7 +149,7 @@ export class AuthComponent {
       this.form.markAllAsTouched();
       this.error.set(
         this.registering
-          ? 'Enter a username and a password with at least 8 characters.'
+          ? 'Enter a username, valid email and password of at least 8 characters, then accept the terms.'
           : 'Enter your username and password.',
       );
       return;

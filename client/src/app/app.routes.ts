@@ -66,6 +66,48 @@ export const routes: Routes = [
     title: 'Create workshop — Atelier',
   },
   { path: 'home', redirectTo: '', pathMatch: 'full' },
+  {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./pages/recovery.component').then((m) => m.RecoveryComponent),
+    title: 'Recover account — Atelier',
+    data: { mode: 'forgot' },
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./pages/recovery.component').then((m) => m.RecoveryComponent),
+    title: 'Reset password — Atelier',
+    data: { mode: 'reset' },
+  },
+  {
+    path: 'verify-email',
+    loadComponent: () =>
+      import('./pages/recovery.component').then((m) => m.RecoveryComponent),
+    title: 'Verify email — Atelier',
+    data: { mode: 'verify' },
+  },
+  {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./pages/legal.component').then((m) => m.LegalComponent),
+    title: 'Privacy — Atelier',
+    data: { mode: 'privacy' },
+  },
+  {
+    path: 'terms',
+    loadComponent: () =>
+      import('./pages/legal.component').then((m) => m.LegalComponent),
+    title: 'Terms — Atelier',
+    data: { mode: 'terms' },
+  },
+  {
+    path: 'account-deleted',
+    loadComponent: () =>
+      import('./pages/legal.component').then((m) => m.LegalComponent),
+    title: 'Account deletion — Atelier',
+    data: { mode: 'deleted' },
+  },
   { path: 'artwork', redirectTo: '', pathMatch: 'full' },
   {
     path: '**',

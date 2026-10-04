@@ -308,6 +308,16 @@ export function notificationRoutes(
     if (!emailEnabled(config))
       throw new HttpError(503, 'Email delivery is not configured yet.');
     const email = textField(req.body, 'email', 254).toLowerCase();
+    const accountEmail = (
+      await sql.query('SELECT email FROM gallery.users WHERE id=$1', [
+        req.user!.id,
+      ])
+    ).rows[0]?.['email'];
+    if (accountEmail && accountEmail !== email)
+      throw new HttpError(
+        400,
+        'Use your account email. Change it in account email settings first.',
+      );
     if (config.resendTestRecipient && email !== config.resendTestRecipient)
       throw new HttpError(
         400,
@@ -362,7 +372,7 @@ export function notificationRoutes(
           'This address has reached its verification limit.',
         );
       await tx.query(
-        `INSERT INTO gallery.notification_preferences(user_id,email,version,verification_hash,verification_expires_at) VALUES($1,$2,$3,$4,now()+interval '30 minutes') ON CONFLICT(user_id) DO UPDATE SET email=$2,version=$3,enabled=false,verified_at=NULL,verification_hash=$4,verification_expires_at=now()+interval '30 minutes',verification_attempts=0,requested_at=now()`,
+        `INSERT INTO gallery.notification_preferences(user_id,email,version,verification_hash,verification_expires_at,consent_at,consent_version) VALUES($1,$2,$3,$4,now()+interval '30 minutes',now(),'2026-10-04') ON CONFLICT(user_id) DO UPDATE SET email=$2,version=$3,enabled=false,verified_at=NULL,verification_hash=$4,verification_expires_at=now()+interval '30 minutes',verification_attempts=0,requested_at=now(),consent_at=now(),consent_version='2026-10-04'`,
         [
           req.user!.id,
           email,
@@ -440,10 +450,36 @@ export function notificationRoutes(
   });
   router.delete('/', async (req, res) => {
     await sql.query(
-      'UPDATE gallery.notification_preferences SET enabled=false,verification_hash=NULL WHERE user_id=$1',
+      'UPDATE gallery.notification_preferences SET enabled=false,consent_at=NULL,consent_version=NULL,verification_hash=NULL WHERE user_id=$1',
       [req.user!.id],
     );
     res.sendStatus(204);
+  });
+  router.patch('/', async (req, res) => {
+    if (publicDemoNames.has(req.user!.username))
+      throw new HttpError(
+        403,
+        'Shared demo accounts cannot enable email notifications.',
+      );
+    if (typeof req.body?.enabled !== 'boolean')
+      throw new HttpError(400, 'Choose whether notifications are enabled.');
+    if (!req.body.enabled) {
+      await sql.query(
+        'UPDATE gallery.notification_preferences SET enabled=false,consent_at=NULL,consent_version=NULL,verification_hash=NULL WHERE user_id=$1',
+        [req.user!.id],
+      );
+    } else {
+      const updated = await sql.query(
+        `UPDATE gallery.notification_preferences p SET enabled=true,consent_at=now(),consent_version='2026-10-04' FROM gallery.users u WHERE p.user_id=$1 AND u.id=p.user_id AND u.email=p.email AND u.email_verified_at IS NOT NULL AND p.verified_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM gallery.email_suppressions s WHERE s.email=p.email) RETURNING p.user_id`,
+        [req.user!.id],
+      );
+      if (!updated.rows.length)
+        throw new HttpError(
+          400,
+          'Verify your account email before enabling notifications.',
+        );
+    }
+    res.json({ enabled: req.body.enabled });
   });
   return router;
 }
@@ -453,7 +489,7 @@ export function notificationCallbacks(sql: Sql, config: Config) {
   const unsubscribe = async (token: unknown) => {
     const [user, version] = readUnsubscribe(config, token);
     await sql.query(
-      'UPDATE gallery.notification_preferences SET enabled=false,verification_hash=NULL WHERE user_id=$1 AND version=$2::uuid',
+      'UPDATE gallery.notification_preferences SET enabled=false,consent_at=NULL,consent_version=NULL,verification_hash=NULL WHERE user_id=$1 AND version=$2::uuid',
       [user, version],
     );
   };
@@ -567,17 +603,38 @@ export async function processNotifications(
       results.dead++;
       continue;
     }
+    const accountMail = ['account-verify', 'password-reset'].includes(
+      String(row['kind']),
+    );
+    const challenge = accountMail
+      ? (
+          await sql.query(
+            'SELECT email,expires_at,used_at FROM gallery.account_challenges WHERE id=$1',
+            [row['preference_version']],
+          )
+        ).rows[0]
+      : null;
+    const eligible = accountMail
+      ? Boolean(
+          challenge &&
+          !challenge['used_at'] &&
+          new Date(String(challenge['expires_at'])).getTime() > Date.now() &&
+          challenge['email'] === mail.to[0],
+        )
+      : Boolean(
+          p &&
+          p['version'] === row['preference_version'] &&
+          p['email'] === mail.to[0] &&
+          (row['kind'] !== 'like' || (p['enabled'] && p['verified_at'])) &&
+          (row['kind'] !== 'verify' ||
+            (p['verification_hash'] &&
+              new Date(String(p['verification_expires_at'])).getTime() >
+                Date.now())),
+        );
     if (
       (config.resendTestRecipient &&
         mail.to[0] !== config.resendTestRecipient) ||
-      !p ||
-      p['version'] !== row['preference_version'] ||
-      p['email'] !== mail.to[0] ||
-      (row['kind'] === 'like' && (!p['enabled'] || !p['verified_at'])) ||
-      (row['kind'] === 'verify' &&
-        (!p['verification_hash'] ||
-          new Date(String(p['verification_expires_at'])).getTime() <=
-            Date.now())) ||
+      !eligible ||
       (
         await sql.query(
           'SELECT 1 FROM gallery.email_suppressions WHERE email=$1',

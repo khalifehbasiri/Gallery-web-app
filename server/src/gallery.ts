@@ -319,12 +319,16 @@ export function galleryRoutes(
       throw new HttpError(400, 'Choose a patron or artist account.');
     const result = await security.change(() =>
       sql.query(
-        'UPDATE gallery.users SET role=$1 WHERE id=$2 RETURNING id,username,role',
+        'UPDATE gallery.users SET role=$1 WHERE id=$2 AND deletion_requested_at IS NULL RETURNING id,username,role',
         [role, req.user!.id],
       ),
     );
     await cache.invalidate();
-    res.json({ user: publicUser(userDto(result.rows[0]!)) });
+    res.json({
+      user: publicUser(
+        userDto(requireDocument(result.rows[0], 'Account unavailable.')),
+      ),
+    });
   });
   for (const method of ['put', 'delete'] as const) {
     router[method]('/artists/:id/follow', requireAuth, async (req, res) => {
@@ -351,6 +355,15 @@ export function galleryRoutes(
       const id = objectId(req.params['id']),
         liking = method === 'put';
       const result = await sql.transaction(async (tx) => {
+        requireDocument(
+          (
+            await tx.query(
+              'SELECT id FROM gallery.users WHERE id=$1 AND deletion_requested_at IS NULL FOR SHARE',
+              [req.user!.id],
+            )
+          ).rows[0],
+          'Account unavailable.',
+        );
         const art = await published(tx, id, true);
         const changed = await tx.query(
           liking
@@ -393,6 +406,15 @@ export function galleryRoutes(
       text = textField(req.body, 'text', 2000),
       reviewId = randomUUID();
     await sql.transaction(async (tx) => {
+      requireDocument(
+        (
+          await tx.query(
+            'SELECT id FROM gallery.users WHERE id=$1 AND deletion_requested_at IS NULL FOR SHARE',
+            [req.user!.id],
+          )
+        ).rows[0],
+        'Account unavailable.',
+      );
       await published(tx, id, true);
       await tx.query(
         'INSERT INTO gallery.reviews (id,user_id,artwork_id,text) VALUES ($1,$2,$3,$4)',
@@ -418,6 +440,15 @@ export function galleryRoutes(
     async (req, res) => {
       const id = objectId(req.params['id']);
       await sql.transaction(async (tx) => {
+        requireDocument(
+          (
+            await tx.query(
+              'SELECT id FROM gallery.users WHERE id=$1 AND deletion_requested_at IS NULL FOR SHARE',
+              [req.user!.id],
+            )
+          ).rows[0],
+          'Account unavailable.',
+        );
         await published(tx, id, true);
         const r = requireDocument(
           (

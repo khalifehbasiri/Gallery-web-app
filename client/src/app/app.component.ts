@@ -66,6 +66,9 @@ import { DOCUMENT } from '@angular/common';
     <footer class="site-footer">
       <a class="brand" routerLink="/">atelier.</a>
       <p>Art is better when it brings us together.</p>
+      <nav aria-label="Legal">
+        <a routerLink="/privacy">Privacy</a> · <a routerLink="/terms">Terms</a>
+      </nav>
       <span>Discover · Collect · Create</span>
     </footer>
   `,

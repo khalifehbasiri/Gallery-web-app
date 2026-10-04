@@ -14,6 +14,16 @@ import { csrfBinding, issueCsrf } from './csrf.js';
 import type { Config } from './config.js';
 import type { Sql } from './database.js';
 import type { SecurityCache } from './security-cache.js';
+import {
+  emailField,
+  policyVersion,
+  queueAccountMail,
+  reserveAccountMail,
+} from './account-mail.js';
+import {
+  disabledDispatch,
+  type NotificationDispatch,
+} from './notifications.js';
 export const accessSeconds = 600;
 const idleMs = 7 * 86400000,
   absoluteMs = 30 * 86400000;
@@ -59,7 +69,7 @@ function tokens(
   });
   issueCsrf(req, res, config, sid);
 }
-function clear(res: Response, config: Config) {
+export function clearAuthCookies(res: Response, config: Config) {
   res.clearCookie('gallery_token', options(config));
   res.clearCookie('gallery_refresh', options(config, '/api/auth'));
   res.clearCookie('gallery_csrf_binding', options(config));
@@ -102,7 +112,7 @@ export function authenticate(
         async () => {
           const result = await sql.query(
             `SELECT u.id,u.username,u.role,extract(epoch FROM least(s.idle_expires_at,s.absolute_expires_at)) AS valid_until FROM gallery.users u JOIN gallery.sessions s ON s.user_id=u.id
-        WHERE u.id=$1 AND s.id=$2 AND s.revoked_at IS NULL AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
+        WHERE u.id=$1 AND u.deletion_requested_at IS NULL AND s.id=$2 AND s.revoked_at IS NULL AND s.idle_expires_at > now() AND s.absolute_expires_at > now()
         AND NOT EXISTS (SELECT 1 FROM gallery.token_denials d WHERE d.jti=$3 AND d.expires_at > now())`,
             [payload.sub, payload['sid'], payload.jti],
           );
@@ -132,11 +142,22 @@ export function authRoutes(
   sql: Sql,
   security: SecurityCache,
   rateLimitEnabled = true,
+  dispatch: NotificationDispatch = disabledDispatch,
+  defer: (work: Promise<void>) => void = (work) => {
+    void work.catch(() => {});
+  },
 ) {
   const router = Router();
   if (rateLimitEnabled)
     router.use(
-      ['/login', '/register', '/refresh'],
+      [
+        '/login',
+        '/register',
+        '/refresh',
+        '/forgot-password',
+        '/reset-password',
+        '/verify-email',
+      ],
       rateLimit({
         windowMs: 15 * 60000,
         limit: 30,
@@ -167,19 +188,49 @@ export function authRoutes(
   router.post('/register', async (req, res) => {
     const username = textField(req.body, 'username', 80),
       password = await hashPassword(passwordField(req.body, 8));
-    const result = await sql.query(
-      'INSERT INTO gallery.users (id,username,password_hash) VALUES ($1,$2,$3) RETURNING id,username,role',
-      [newId(), username, password],
-    );
+    const email = emailField(req.body);
+    if (req.body?.acceptedTerms !== true)
+      throw new HttpError(
+        400,
+        'Accept the terms and acknowledge the privacy notice to register.',
+      );
+    if (
+      req.body?.notifications !== undefined &&
+      typeof req.body.notifications !== 'boolean'
+    )
+      throw new HttpError(400, 'Invalid notification preference.');
+    const { result, ids } = await sql.transaction(async (tx) => {
+      const id = newId();
+      const result = await tx.query(
+        'INSERT INTO gallery.users (id,username,password_hash,email,terms_version,terms_accepted_at) VALUES ($1,$2,$3,$4,$5,now()) RETURNING id,username,role',
+        [id, username, password, email, policyVersion],
+      );
+      await tx.query(
+        'INSERT INTO gallery.notification_preferences(user_id,email,version,consent_at,consent_version) VALUES($1,$2,$3,$4,$5)',
+        [
+          id,
+          email,
+          randomUUID(),
+          req.body.notifications === true ? new Date() : null,
+          req.body.notifications === true ? policyVersion : null,
+        ],
+      );
+      const ids = (await reserveAccountMail(tx, config, email))
+        ? await queueAccountMail(tx, config, id, email, 'account-verify')
+        : [];
+      return { result, ids };
+    });
+    defer(dispatch.kick(ids));
     res.status(201).json({ user: publicUser(userDto(result.rows[0]!)) });
   });
   router.post('/login', async (req, res) => {
     const username = textField(req.body, 'username', 80),
       password = passwordField(req.body);
     const found = (
-      await sql.query('SELECT * FROM gallery.users WHERE username=$1', [
-        username,
-      ])
+      await sql.query(
+        'SELECT * FROM gallery.users WHERE username=$1 AND deletion_requested_at IS NULL',
+        [username],
+      )
     ).rows[0];
     if (
       !found ||
@@ -290,7 +341,7 @@ export function authRoutes(
       }),
     );
     if (!rotated) {
-      clear(res, config);
+      clearAuthCookies(res, config);
       throw new HttpError(
         401,
         'Refresh token expired or reused. Please sign in again.',
@@ -328,7 +379,7 @@ export function authRoutes(
           sid,
         ]),
       );
-    clear(res, config);
+    clearAuthCookies(res, config);
     res.sendStatus(204);
   });
   router.get('/sessions', requireAuth, async (req, res) => {
@@ -358,7 +409,7 @@ export function authRoutes(
       ),
     );
     if (!result.rows.length) throw new HttpError(404, 'Session not found.');
-    if (req.params['id'] === req.authSessionId) clear(res, config);
+    if (req.params['id'] === req.authSessionId) clearAuthCookies(res, config);
     res.sendStatus(204);
   });
   router.post('/logout-all', requireAuth, async (req, res) => {
@@ -368,7 +419,7 @@ export function authRoutes(
         [req.user!.id],
       ),
     );
-    clear(res, config);
+    clearAuthCookies(res, config);
     res.sendStatus(204);
   });
   router.post('/deny-token', requireAuth, async (req, res) => {

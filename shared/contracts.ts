@@ -89,6 +89,18 @@ export interface Credentials {
   username: string;
   password: string;
 }
+export interface Registration extends Credentials {
+  email: string;
+  acceptedTerms: boolean;
+  notifications: boolean;
+}
+export interface AccountIdentity {
+  email: string;
+  verified: boolean;
+  termsVersion: string | null;
+  deliveryAvailable: boolean;
+  publicDemo: boolean;
+}
 export interface AuthResponse {
   user: User | null;
 }

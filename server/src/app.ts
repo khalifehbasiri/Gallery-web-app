@@ -13,6 +13,8 @@ import type { ArtworkStore } from './domain.js';
 import type { ImageStorage } from './storage.js';
 import { uncachedSecurity, type SecurityCache } from './security-cache.js';
 import { csrfGuard } from './csrf.js';
+import { accountLifecycleRoutes } from './account-lifecycle.js';
+import { runMaintenance } from './maintenance.js';
 import { apiLimit } from './rate-limit.js';
 import { timingSafeEqual } from 'node:crypto';
 import {
@@ -109,8 +111,9 @@ export function createApp({
       !timingSafeEqual(actual, expected)
     )
       throw new HttpError(401, 'Unauthorized.');
+    const maintenance = await runMaintenance(sql, artworks, storage, cache);
     if (!emailEnabled(config)) {
-      res.json({ queued: 0, emailConfigured: false });
+      res.json({ queued: 0, emailConfigured: false, maintenance });
       return;
     }
     const ids = (
@@ -120,11 +123,27 @@ export function createApp({
     ).rows.map((r) => String(r['id']));
     // Wake only when real work exists; no synthetic Render keepalive.
     defer(notifications.kick(ids));
-    res.json({ queued: ids.length });
+    res.json({ queued: ids.length, maintenance });
   });
   app.use('/api', authenticate(config, sql, security));
   app.use('/api', csrfGuard(config));
-  app.use('/api/auth', authRoutes(config, sql, security, rateLimitEnabled));
+  app.use(
+    '/api/auth',
+    authRoutes(config, sql, security, rateLimitEnabled, notifications, defer),
+  );
+  app.use(
+    '/api',
+    accountLifecycleRoutes(
+      sql,
+      config,
+      security,
+      cache,
+      notifications,
+      defer,
+      artworks,
+      storage,
+    ),
+  );
   app.use(
     '/api/notifications',
     notificationRoutes(sql, config, notifications, defer),

@@ -254,7 +254,14 @@ describe('PostgreSQL API and cookie security', () => {
       jar = cookies(anon),
       auth = { jar, csrf: csrf(jar) };
     await mutate('post', '/api/auth/register', auth)
-      .send({ username: 'New', password: ' password ', role: 'artist' })
+      .send({
+        username: 'New',
+        password: ' password ',
+        role: 'artist',
+        email: 'new@example.com',
+        acceptedTerms: true,
+        notifications: false,
+      })
       .expect(201);
     const row = (
       await sql.query("SELECT * FROM gallery.users WHERE username='New'")
@@ -262,7 +269,13 @@ describe('PostgreSQL API and cookie security', () => {
     assert.equal(row['role'], 'patron');
     assert.ok(await verifyPassword(' password ', String(row['password_hash'])));
     await mutate('post', '/api/auth/register', auth)
-      .send({ username: 'New', password: ' password ' })
+      .send({
+        username: 'New',
+        password: ' password ',
+        email: 'new@example.com',
+        acceptedTerms: true,
+        notifications: false,
+      })
       .expect(409);
   });
   it('searches indexed SQL projections and rejects malformed filters and pagination', async () => {

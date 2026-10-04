@@ -10,6 +10,8 @@ import type {
   ArtworkSummary,
   AuthResponse,
   Credentials,
+  Registration,
+  AccountIdentity,
   GalleryQuery,
   GalleryStats,
   LikeResponse,
@@ -44,8 +46,50 @@ export class ApiService {
   login(credentials: Credentials) {
     return this.http.post<AuthResponse>('/api/auth/login', credentials);
   }
-  register(credentials: Credentials) {
+  register(credentials: Registration) {
     return this.http.post<AuthResponse>('/api/auth/register', credentials);
+  }
+  identity() {
+    return this.http.get<AccountIdentity>('/api/account/identity');
+  }
+  saveAccountEmail(email: string, password: string) {
+    return this.http.post<{ message: string }>('/api/account/email', {
+      email,
+      password,
+    });
+  }
+  setNotifications(enabled: boolean) {
+    return this.http.patch<{ enabled: boolean }>('/api/notifications', {
+      enabled,
+    });
+  }
+  forgotPassword(email: string) {
+    return this.http.post<{ message: string }>('/api/auth/forgot-password', {
+      email,
+    });
+  }
+  resetPassword(token: string, password: string) {
+    return this.http.post<{ message: string }>('/api/auth/reset-password', {
+      token,
+      password,
+    });
+  }
+  verifyAccountEmail(token: string) {
+    return this.http.post<{ message: string }>('/api/auth/verify-email', {
+      token,
+    });
+  }
+  exportAccount(password: string) {
+    return this.http.post(
+      '/api/account/export',
+      { password },
+      { responseType: 'blob' },
+    );
+  }
+  deleteAccount(password: string, confirmation: string) {
+    return this.http.delete<{ message: string }>('/api/account', {
+      body: { password, confirmation },
+    });
   }
   logout() {
     return this.http.post<void>('/api/auth/logout', {});

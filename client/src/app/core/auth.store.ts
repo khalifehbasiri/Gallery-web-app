@@ -7,7 +7,11 @@ import {
   withState,
 } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
-import type { Credentials, User } from '../../../../shared/contracts';
+import type {
+  Credentials,
+  Registration,
+  User,
+} from '../../../../shared/contracts';
 import { ApiService } from './api.service';
 
 export const AuthStore = signalStore(
@@ -30,7 +34,7 @@ export const AuthStore = signalStore(
       const { user } = await firstValueFrom(api.login(credentials));
       patchState(store, { user });
     },
-    async register(credentials: Credentials) {
+    async register(credentials: Registration) {
       await firstValueFrom(api.register(credentials));
       await this.login(credentials);
     },

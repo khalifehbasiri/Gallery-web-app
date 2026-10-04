@@ -17,7 +17,14 @@ export function apiLimit(
   return async (req, res, next) => {
     const auth =
       req.path.startsWith('/auth/') &&
-      ['login', 'register', 'refresh'].some((p) => req.path.endsWith('/' + p));
+      [
+        'login',
+        'register',
+        'refresh',
+        'forgot-password',
+        'reset-password',
+        'verify-email',
+      ].some((p) => req.path.endsWith('/' + p));
     const digest = createHmac('sha256', config.jwtSecret)
       .update(`${auth ? 'auth' : 'api'}:${req.ip || 'unknown'}`)
       .digest('hex');

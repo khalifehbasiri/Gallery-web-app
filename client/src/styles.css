@@ -1112,3 +1112,19 @@ dd {
     transition: none !important;
   }
 }
+.form-panel input[type='checkbox'] {
+  display: inline-block;
+  width: auto;
+  min-height: auto;
+  margin-right: 8px;
+  accent-color: var(--accent);
+}
+.legal-page {
+  max-width: 860px;
+}
+.legal-page h2 {
+  margin-top: 32px;
+}
+.legal-page li {
+  margin-bottom: 12px;
+}
