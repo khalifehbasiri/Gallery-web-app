@@ -148,7 +148,7 @@ sequenceDiagram
   API->>R: Enqueue notification UUID
   API->>W: Authenticated wake request
   W->>R: Pop queue hints
-  W->>SQL: Lease bounded due jobs; recover expired leases
+  W->>SQL: Lease bounded due jobs and recover expired leases
   W->>SQL: Check consent, verification, suppression and quota
   W->>E: Send frozen payload with stable idempotency key
   E-->>W: Accepted email ID or error
