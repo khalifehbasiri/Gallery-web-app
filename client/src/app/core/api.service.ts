@@ -16,6 +16,9 @@ import type {
   GalleryStats,
   LikeResponse,
   Page,
+  FeedMode,
+  FeedPage,
+  Person,
   Review,
   Workshop,
 } from '../../../../shared/contracts';
@@ -97,6 +100,16 @@ export class ApiService {
   stats() {
     return this.http.get<GalleryStats>('/api/stats');
   }
+  feed(mode: FeedMode, cursor?: string) {
+    let params = new HttpParams().set('limit', 12);
+    if (cursor) params = params.set('cursor', cursor);
+    return this.http.get<FeedPage>(`/api/feeds/${mode}`, { params });
+  }
+  people(search = '', page = 1) {
+    return this.http.get<Page<Person>>('/api/people', {
+      params: { search, page, limit: 12 },
+    });
+  }
   artworks(query: GalleryQuery) {
     const params = new HttpParams()
       .set('search', query.search)
@@ -115,12 +128,12 @@ export class ApiService {
     });
   }
   artist(id: string) {
-    return this.http.get<Artist>(`/api/artists/${id}`);
+    return this.http.get<Artist>(`/api/people/${id}`);
   }
   follow(id: string, following: boolean) {
     return following
-      ? this.http.put<{ following: boolean }>(`/api/artists/${id}/follow`, {})
-      : this.http.delete<{ following: boolean }>(`/api/artists/${id}/follow`);
+      ? this.http.put<{ following: boolean }>(`/api/people/${id}/follow`, {})
+      : this.http.delete<{ following: boolean }>(`/api/people/${id}/follow`);
   }
   like(id: string, liked: boolean) {
     return liked

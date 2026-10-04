@@ -36,7 +36,10 @@ import { DOCUMENT } from '@angular/common';
           >Discover</a
         >
         <a routerLink="/workshops" routerLinkActive="active">Workshops</a>
+        <a routerLink="/explore" routerLinkActive="active">Explore</a>
+        <a routerLink="/people" routerLinkActive="active">People</a>
         @if (auth.signedIn()) {
+          <a routerLink="/following" routerLinkActive="active">Following</a>
           <a routerLink="/account" routerLinkActive="active">Your collection</a>
         }
       </nav>

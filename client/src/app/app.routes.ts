@@ -3,6 +3,33 @@ import { authGuard, artistGuard } from './core/guards';
 
 export const routes: Routes = [
   {
+    path: 'explore',
+    loadComponent: () =>
+      import('./pages/feed.component').then((m) => m.FeedComponent),
+    title: 'Explore — Atelier',
+    data: { mode: 'explore' },
+  },
+  {
+    path: 'following',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/feed.component').then((m) => m.FeedComponent),
+    title: 'Following — Atelier',
+    data: { mode: 'following' },
+  },
+  {
+    path: 'people',
+    loadComponent: () =>
+      import('./pages/people.component').then((m) => m.PeopleComponent),
+    title: 'People — Atelier',
+  },
+  {
+    path: 'people/:id',
+    loadComponent: () =>
+      import('./pages/artist.component').then((m) => m.ArtistComponent),
+    title: 'Profile — Atelier',
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./pages/gallery.component').then((m) => m.GalleryComponent),

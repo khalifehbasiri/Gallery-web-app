@@ -191,6 +191,7 @@ em {
 }
 .site-header nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 28px;
   font-size: 12px;
   color: var(--muted);
@@ -990,7 +991,7 @@ dd {
   .site-header nav {
     order: 3;
     width: 100%;
-    gap: 25px;
+    gap: 4px 18px;
     justify-content: center;
   }
   .header-actions {
@@ -1127,4 +1128,52 @@ dd {
 }
 .legal-page li {
   margin-bottom: 12px;
+}
+.feed-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.feed-tabs .active {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.4rem;
+}
+.feed-notice {
+  padding: 1rem;
+  background: var(--white);
+  margin: 1.5rem 0;
+}
+.feed-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+.people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+.person-name {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.person-name h2 {
+  font-size: 1.4rem;
+  overflow-wrap: anywhere;
+}
+.person-card .profile-avatar {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  font-size: 1.2rem;
+}
+.people-search {
+  display: block;
+  max-width: 36rem;
 }

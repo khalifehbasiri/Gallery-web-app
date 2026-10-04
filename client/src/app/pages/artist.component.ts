@@ -46,13 +46,13 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
               {{ person.workshops.length === 1 ? 'workshop' : 'workshops' }}
             </p>
           </div>
-          @if (person.role === 'artist' && person.id !== auth.user()?.id) {
+          @if (person.id !== auth.user()?.id) {
             <button
               class="button button-outline"
               [disabled]="busy()"
               (click)="follow()"
             >
-              {{ person.following ? 'Following ✓' : 'Follow artist ↗' }}
+              {{ person.following ? 'Following ✓' : 'Follow ↗' }}
             </button>
           }
         </div>
@@ -82,7 +82,7 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
         }
       } @else if (!error()) {
         <div class="empty-state" aria-busy="true">
-          Getting to know the artist…
+          Getting to know this person…
         </div>
       }
     </section>
@@ -112,7 +112,7 @@ export class ArtistComponent {
   async follow() {
     if (!this.auth.signedIn()) {
       await this.router.navigate(['/login'], {
-        queryParams: { returnUrl: `/artists/${this.id()}` },
+        queryParams: { returnUrl: `/people/${this.id()}` },
       });
       return;
     }
