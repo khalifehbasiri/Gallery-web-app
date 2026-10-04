@@ -3,6 +3,7 @@ import {
   demoCollectionEntries,
   demoCollectionDescription,
   referenceImageDescription,
+  isReferenceImage,
 } from '../shared/collection-images.js';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
@@ -127,8 +128,8 @@ try {
       accounts: snapshot.users.length,
       artworks: snapshot.artworks.length,
       workshops: snapshot.workshops.length,
-      referenceImages: snapshot.warnings.filter((w) =>
-        w.includes('Credited reference image substituted'),
+      referenceImages: snapshot.artworks.filter((art) =>
+        isReferenceImage(art.description),
       ).length,
     }),
   );

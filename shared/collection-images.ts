@@ -364,7 +364,7 @@ export const collectionImages = [
     year: '1855',
     date: 'ca. 1855–60',
     medium: 'Oil on canvas',
-    alt: 'Spring Flowers, oil on canvas by Gustave Courbet',
+    alt: 'Spring Flowers, oil on canvas, copy after Gustave Courbet',
     file: 'met-436026-b274109e5e780759.jpg',
     sha256: 'b274109e5e780759f85f94762ae0dfad06cf5e4f7b2ca0e3b08ee0ba3884eab2',
     sourceUrl: 'https://www.metmuseum.org/art/collection/search/436026',
