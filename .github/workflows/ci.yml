@@ -1,0 +1,81 @@
+name: Quality and deployment
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gallery-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  quality:
+    name: Tests, build, format and production audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7.4.2
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      TEST_REDIS_URL: redis://127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+  deploy:
+    name: Deploy tested revision
+    needs: quality
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.14.0
+          cache: npm
+      - name: Require deployment configuration
+        run: |
+          test -n "$VERCEL_TOKEN" && test -n "$VERCEL_ORG_ID" && test -n "$VERCEL_PROJECT_ID"
+      - run: npm ci
+      - run: npm install --global vercel@50.5.0
+      - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: vercel build --prod --token="$VERCEL_TOKEN"
+      - name: Stage and verify the tested revision before promotion
+        shell: bash
+        run: |
+          current=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$current" != "$GITHUB_SHA" ]; then echo "A newer revision is queued; skipping this deployment."; exit 0; fi
+          url=$(vercel deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          echo "Staged deployment: $url"
+          vercel curl /api/health --deployment="$url" --token="$VERCEL_TOKEN" > /tmp/health.json
+          node -e 'const fs=require("fs");if(JSON.parse(fs.readFileSync("/tmp/health.json")).status!=="ok")process.exit(1)'
+          vercel curl '/api/artworks?limit=1' --deployment="$url" --token="$VERCEL_TOKEN" > /tmp/gallery.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/gallery.json"));if(!Array.isArray(x.items))process.exit(1)'
+          current=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$current" != "$GITHUB_SHA" ]; then echo "A newer revision arrived; leaving this deployment staged."; exit 0; fi
+          vercel promote "$url" --yes --token="$VERCEL_TOKEN"
+      - name: Deploy the notification processor after quality checks
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          test -n "$RENDER_DEPLOY_HOOK"
+          current=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$current" != "$GITHUB_SHA" ]; then exit 0; fi
+          curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK&ref=$GITHUB_SHA" > /dev/null
