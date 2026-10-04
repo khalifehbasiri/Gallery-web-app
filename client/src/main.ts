@@ -6,10 +6,16 @@ import {
   withInMemoryScrolling,
 } from '@angular/router';
 import { inject, provideAppInitializer } from '@angular/core';
+import { inject as injectAnalytics } from '@vercel/analytics';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { AuthStore } from './app/core/auth.store';
 import { sessionInterceptor } from './app/core/session.interceptor';
+
+// Initialize Vercel Web Analytics
+injectAnalytics({
+  mode: 'auto',
+});
 
 bootstrapApplication(AppComponent, {
   providers: [
