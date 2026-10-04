@@ -3,13 +3,13 @@ import type { Config } from './config.js';
 import type { RedisConnection } from './cache.js';
 import { createHash } from 'node:crypto';
 export function redisScope(config: Config) {
-  const url = new URL(config.databaseUrl || config.mongoUri);
+  const url = new URL(config.databaseUrl || 'mongodb://127.0.0.1/gallery');
   // Credentials and pooler mode can rotate without splitting the revocation authority.
   const identity =
     config.supabaseUrl ||
     `${url.hostname}:${url.pathname}:${url.username.split('.').at(-1)}`;
   return createHash('sha256')
-    .update(`${identity}:${config.firebaseProjectId || 'local'}`)
+    .update(`${identity}:${config.redisScopeId}`)
     .digest('hex')
     .slice(0, 16);
 }

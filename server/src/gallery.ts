@@ -442,7 +442,15 @@ export function galleryRoutes(
       res.sendStatus(204);
     },
   );
-  router.post('/uploads', requireAuth, artistOnly, async (req, res) =>
+  const artworkWriteGuard = () => {
+    if (config.artworkWritesPaused)
+      throw new HttpError(
+        503,
+        'Artwork publishing is temporarily paused for maintenance. Please try again later.',
+      );
+  };
+  router.post('/uploads', requireAuth, artistOnly, async (req, res) => {
+    artworkWriteGuard();
     res
       .status(201)
       .json(
@@ -453,9 +461,10 @@ export function galleryRoutes(
           req.body?.contentType,
           req.body?.bytes,
         ),
-      ),
-  );
+      );
+  });
   router.post('/artworks', requireAuth, artistOnly, async (req, res) => {
+    artworkWriteGuard();
     const title = textField(req.body, 'title'),
       year = textField(req.body, 'year', 4),
       category = textField(req.body, 'category'),

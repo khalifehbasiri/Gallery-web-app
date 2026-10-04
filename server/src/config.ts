@@ -13,7 +13,10 @@ export const clientDirectory = path.join(rootDirectory, 'dist/client/browser');
 
 export interface Config {
   port: number;
-  mongoUri: string;
+  mongoUri?: string;
+  mongoDatabase: string;
+  artworkBackend: 'mongodb' | 'firestore';
+  artworkWritesPaused: boolean;
   jwtSecret: string;
   production: boolean;
   trustProxy: boolean;
@@ -21,6 +24,7 @@ export interface Config {
   redisUrl?: string;
   redisCacheTtlSeconds: number;
   redisKeyPrefix: string;
+  redisScopeId: string;
   databaseUrl?: string;
   databaseCa?: string;
   firebaseProjectId?: string;
@@ -79,6 +83,34 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
       'REDIS_CACHE_TTL_SECONDS must be an integer between 1 and 3600.',
     );
   const redisKeyPrefix = env.REDIS_KEY_PREFIX || 'gallery-web-app';
+  const mongoUri = env.MONGODB_URI?.trim() || undefined;
+  const mongoDatabase = env.MONGODB_DATABASE || 'gallery';
+  const artworkBackend = env.ARTWORK_BACKEND || 'mongodb';
+  if (!['mongodb', 'firestore'].includes(artworkBackend))
+    throw new Error('ARTWORK_BACKEND must be mongodb or firestore.');
+  if (mongoUri && !/^mongodb(?:\+srv)?:\/\//.test(mongoUri))
+    throw new Error('MONGODB_URI must be a MongoDB connection string.');
+  if (
+    !/^[a-zA-Z0-9_-]{1,63}$/.test(mongoDatabase) ||
+    ['admin', 'config', 'local'].includes(mongoDatabase)
+  )
+    throw new Error('MONGODB_DATABASE must name an application database.');
+  if (production && mongoUri) {
+    const options = new URLSearchParams(mongoUri.split('?')[1] || '');
+    for (const [key, value] of options) {
+      const name = key.toLowerCase();
+      if (
+        (['tls', 'ssl'].includes(name) && value.toLowerCase() === 'false') ||
+        ([
+          'tlsinsecure',
+          'tlsallowinvalidcertificates',
+          'tlsallowinvalidhostnames',
+        ].includes(name) &&
+          value.toLowerCase() === 'true')
+      )
+        throw new Error('Production MongoDB requires verified TLS.');
+    }
+  }
   if (
     Boolean(env.UPSTASH_REDIS_REST_URL) !==
     Boolean(env.UPSTASH_REDIS_REST_TOKEN)
@@ -106,7 +138,10 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error('RESEND_FROM cannot contain line breaks.');
   return {
     port,
-    mongoUri: env.MONGODB_URI || 'mongodb://127.0.0.1:27017/TP',
+    mongoUri,
+    mongoDatabase,
+    artworkBackend: artworkBackend as Config['artworkBackend'],
+    artworkWritesPaused: env.ARTWORK_WRITES_PAUSED === 'true',
     jwtSecret: secret || randomBytes(32).toString('hex'),
     production,
     trustProxy: env.TRUST_PROXY === '1',
@@ -114,6 +149,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): Config {
     redisUrl,
     redisCacheTtlSeconds,
     redisKeyPrefix,
+    // Preserve the existing namespace during the document-store migration.
+    redisScopeId: env.REDIS_SCOPE_ID || env.FIREBASE_PROJECT_ID || 'local',
     databaseUrl: env.DATABASE_URL,
     databaseCa: env.DATABASE_CA_CERT,
     firebaseProjectId: env.FIREBASE_PROJECT_ID,

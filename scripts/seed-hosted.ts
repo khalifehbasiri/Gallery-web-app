@@ -3,7 +3,7 @@ import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { readConfig } from '../server/src/config.js';
 import { postgres } from '../server/src/database.js';
-import { firestoreArtworks } from '../server/src/firestore.js';
+import { artworkStore } from '../server/src/artwork-store.js';
 import {
   normalizeLegacy,
   importSnapshot,
@@ -153,7 +153,7 @@ try {
   await writeFile(filename, JSON.stringify(snapshot, null, 2), { flag: 'wx' });
 }
 const sql = postgres(config.databaseUrl, config.databaseCa),
-  store = firestoreArtworks(config),
+  store = await artworkStore(config),
   cache = createDiscoveryCache(config);
 try {
   await importSnapshot(sql, store, snapshot);

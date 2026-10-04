@@ -10,7 +10,7 @@ import {
 } from '../server/src/migration.js';
 import { readConfig } from '../server/src/config.js';
 import { postgres } from '../server/src/database.js';
-import { firestoreArtworks } from '../server/src/firestore.js';
+import { artworkStore } from '../server/src/artwork-store.js';
 import { prepareSnapshotAssets } from '../server/src/migration-assets.js';
 const [command, filename, output] = process.argv.slice(2);
 if (
@@ -134,7 +134,7 @@ if (command === 'export') {
     const config = readConfig();
     if (!config.databaseUrl) throw new Error('Configure the new DATABASE_URL.');
     const sql = postgres(config.databaseUrl, config.databaseCa),
-      store = firestoreArtworks(config);
+      store = await artworkStore(config);
     try {
       if (command === 'import') await importSnapshot(sql, store, snapshot);
       await verifySnapshot(sql, store, snapshot);

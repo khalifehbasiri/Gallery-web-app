@@ -83,7 +83,7 @@ export async function published(sql: Sql, id: string, lock = false) {
     'Artwork not found.',
   );
 }
-// Reserve title/ID, create Firestore document, then publish the SQL search projection.
+// Reserve title/ID, create the artwork document, then publish the SQL search projection.
 // Interrupted writes remain pending and cannot leak into public gallery queries.
 export async function publish(
   sql: Sql,

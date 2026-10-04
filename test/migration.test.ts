@@ -125,7 +125,7 @@ it('rejects dangling legacy references and duplicate content before touching a t
     /HTTPS/,
   );
 });
-it('keeps interrupted Firestore publications out of public queries and permits a clean retry', async () => {
+it('keeps interrupted document publications out of public queries and permits a clean retry', async () => {
   const db = await localDatabase(),
     store = new LocalArtworkStore();
   const snapshot = await normalizeLegacy(legacyUsers, legacyArt);

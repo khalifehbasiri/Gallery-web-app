@@ -466,7 +466,31 @@ describe('PostgreSQL API and cookie security', () => {
       .expect(409);
     assert.throws(() => imageType(Buffer.from('<script>x</script>')), /PNG/);
   });
-  it('hides partial Firestore publications, SQL errors and private account credentials', async () => {
+  it('pauses artwork writes during migration while keeping reads and relational activity available', async () => {
+    const auth = await login('Maya Laurent');
+    const maintenance = createApp({
+      config: { ...config, artworkWritesPaused: true },
+      sql,
+      artworks,
+      storage,
+      cache,
+      rateLimitEnabled: false,
+    });
+    await request(maintenance).get('/api/artworks').expect(200);
+    for (const url of ['/api/uploads', '/api/artworks'])
+      await request(maintenance)
+        .post(url)
+        .set('Cookie', auth.jar)
+        .set('X-XSRF-TOKEN', auth.csrf)
+        .send({})
+        .expect(503);
+    await request(maintenance)
+      .put(`/api/artworks/${art}/like`)
+      .set('Cookie', auth.jar)
+      .set('X-XSRF-TOKEN', auth.csrf)
+      .expect(200);
+  });
+  it('hides partial document publications, SQL errors and private account credentials', async () => {
     await sql.query(
       "UPDATE gallery.artworks SET status='pending' WHERE id=$1",
       [art],
