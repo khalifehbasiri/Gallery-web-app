@@ -249,10 +249,15 @@ export class GalleryComponent {
       .then((stats) => this.stats.set(stats))
       .catch(() => undefined);
   }
-  private navigate(params: Record<string, string | number>) {
+  private navigate(
+    params: Record<string, string | number>,
+    preserveScroll = true,
+  ) {
     return this.router.navigate([], {
       relativeTo: this.route,
       queryParams: params,
+      // Filtering updates this view; it must not trigger the global scroll-to-top.
+      scroll: preserveScroll ? 'manual' : undefined,
     });
   }
   reset() {
@@ -260,9 +265,12 @@ export class GalleryComponent {
     void this.navigate({ page: 1 });
   }
   page(change: number) {
-    void this.navigate({
-      ...this.store.query(),
-      page: this.store.query().page + change,
-    });
+    void this.navigate(
+      {
+        ...this.store.query(),
+        page: this.store.query().page + change,
+      },
+      false,
+    );
   }
 }
