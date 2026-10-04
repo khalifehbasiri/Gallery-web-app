@@ -20,7 +20,7 @@ This maps the 37 requested areas to code, operational evidence and remaining wor
 | 14  | Database                | Relational PostgreSQL plus MongoDB artwork documents                                                            |
 | 15  | Models/relationships    | Foreign keys/composite keys, strict document validator, SQL publication projection                              |
 | 16  | Storage/uploads         | Private staging, signed uploads, byte/MIME/size checks, public immutable images                                 |
-| 17  | Discovery               | GIN full-text search, filters, stable newest-first order, bounded offset pages; cursor pagination future        |
+| 17  | Discovery               | GIN search/filters, offset gallery pages, signed keyset feeds and indexed random-start Explore                  |
 | 18  | Errors                  | Consistent HTTP errors, safe 500 responses, UI feedback, rollback and retry/dead letters                        |
 | 19  | Security                | Ownership, credential hashing, CSRF/CSP, scoped identities, fenced revocation                                   |
 | 20  | HTTPS                   | HTTPS hosting, Secure cookies and verified database TLS                                                         |

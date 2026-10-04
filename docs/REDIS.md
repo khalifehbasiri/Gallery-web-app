@@ -4,7 +4,7 @@ Production uses account-owned Upstash Free over REST. Set `UPSTASH_REDIS_REST_UR
 
 ## Public content
 
-Cache statistics, filtered gallery pages, artwork details, public reviews, artist summaries and workshops. Public counts are cached; authoritative likes/comments remain in PostgreSQL. Signed-in requests reuse public entries, then overlay personal flags separately. Content entries contain no personalized response objects, passwords, raw JWTs or refresh secrets.
+Cache statistics, filtered gallery pages, artwork details, public reviews, artist summaries and workshops. Public counts are cached; authoritative likes/comments remain in PostgreSQL. Signed-in requests reuse public entries, then overlay personal flags separately. Public entries contain no personalized response objects, passwords, raw JWTs or refresh secrets. Feeds additionally cache follow IDs under the viewer ID and selection pages under a viewer/follow-context key; these scoped entries are separate from public discovery and never include email or personal liked flags. Publication proactively refreshes a bounded shared recent-post pool. See [feed cache design](FEEDS.md).
 
 Default expiry is 60 seconds, configurable from 1–3600. Namespaces use project identity and a key prefix; credentials can rotate without splitting revocation authority. Writes change a shared generation. Conditional Lua fills prevent an older read from repopulating the new generation. Identical misses coalesce within a process. Global invalidation trades some hit rate for simpler consistency; old entries expire naturally.
 

@@ -25,7 +25,7 @@ PostgreSQL also stores an artwork search/publication projection: title, category
 
 ## Consistency and scaling
 
-Likes/reviews lock the artwork row and update relationships/counters in one transaction. Unique composite keys make repeated likes, follows and enrollments safe. Personal liked/following/joined/owned flags are overlaid after loading public cache entries, using bounded SQL queries.
+Likes/reviews lock the artwork row and update relationships/counters in one transaction. Unique composite keys make repeated likes, follows and enrollments safe. Personal liked/joined/owned flags are overlaid after loading public cache entries, using bounded SQL queries. The People directory overlays following state from a viewer-scoped cached graph. Members of either role can follow each other. Feeds use a shared bounded recent pool, cached personalized selection, indexed older-post fallback and signed keyset cursors; publication proactively warms the pool. See [feeds](FEEDS.md).
 
 Gallery/workshop/review pages accept at most 48 items and page 500. Account/artist sections cap at 48 entries; session lists at 100. Larger catalogs need cursor pagination and independently paginated account sections. Indexes cover foreign keys, recent lists, filters, reviews, text search and expiry cleanup. Transaction-pool connections use unnamed statements, five-second statement/connection timeouts and one socket per warm function.
 

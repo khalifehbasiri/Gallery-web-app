@@ -26,6 +26,11 @@ JSON endpoints under `/api`; errors are `{ "error": "message" }`. Bearer credent
 | DELETE       | /artworks/:id/reviews/:reviewId                 | Review author only                                                                 |
 | GET          | /artists/:id                                    | Public profile/artworks/workshops, bounded sections                                |
 | PUT / DELETE | /artists/:id/follow                             | Idempotent follow/unfollow; signed in                                              |
+| GET          | /people                                         | Public username/role directory; search, page, limit                                |
+| GET          | /people/:id                                     | Public profile; compatible with /artists/:id                                       |
+| PUT / DELETE | /people/:id/follow                              | Follow/unfollow any other active account, including patrons; signed in             |
+| GET          | /feeds/explore                                  | Random-start indexed discovery; limit and optional cursor; public                  |
+| GET          | /feeds/following                                | Newest followed posts; random discovery with no follows; signed in                 |
 | GET          | /workshops                                      | Public paginated workshops                                                         |
 | POST         | /workshops                                      | `{name,goal,weeks}`; artist                                                        |
 | PUT          | /artists/:id/workshops/:workshopId/registration | Idempotent enrollment; signed in                                                   |

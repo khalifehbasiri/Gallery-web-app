@@ -1,6 +1,6 @@
 # Atelier — Gallery web app
 
-A full-stack art community built with Angular 21, TypeScript, RxJS, NgRx SignalStore, Node.js 22 and Express 5. Browse and search artwork, save favorites, follow artists, post reviews, publish images, and create or join workshops.
+A full-stack art community built with Angular 21, TypeScript, RxJS, NgRx SignalStore, Node.js 22 and Express 5. Browse and search artwork, save favorites, follow community members, post reviews, publish images, and create or join workshops.
 
 **Live app:** [gallery-web-app-two.vercel.app](https://gallery-web-app-two.vercel.app)
 
@@ -88,6 +88,12 @@ The app already uses both: **object storage keeps image bytes durably; a CDN del
 ### CI/CD
 
 Pull requests/main pushes run installation, formatting, API/Angular tests, production build and a high/critical runtime audit. CI uses isolated SQL/MongoDB and runner-local Redis, without production database/email credentials. Main releases stage a prebuilt Vercel artifact, smoke-check it and promote that artifact; a Render hook deploys the tested revision. Vercel automatic Git deployment is disabled to prevent bypassing checks. Dedicated GitHub deployment secrets and Gallery Render Auto-Deploy settings need owner setup; missing credentials fail explicitly. [Pipeline setup and verification](docs/CI_CD.md).
+
+### Following and Explore feeds
+
+Members of either role can find and follow each other on [People](https://gallery-web-app-two.vercel.app/people). [Following](https://gallery-web-app-two.vercel.app/following) shows their newest published posts, or random discoveries when there are no follows. [Explore](https://gallery-web-app-two.vercel.app/explore) uses a random starting point in an indexed shuffled order. Both use signed cursor pagination and cancel stale client requests.
+
+After durable publication, a deferred task refreshes a bounded Redis pool of recent public summaries. Cached viewer-specific selections and indexed SQL fallback keep older followed posts accessible without querying feed content on every visit. Personal like flags remain a separate bounded SQL lookup. This avoids copying every post into every follower’s cache. [Feed design, tests and improvements](docs/FEEDS.md).
 
 ## Design decisions: what goes where, and why
 

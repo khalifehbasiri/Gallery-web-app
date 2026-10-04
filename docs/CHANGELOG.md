@@ -1,5 +1,12 @@
 # Modernization change log
 
+## Community follows and cached feeds
+
+- Generalized following to artists and patrons, with a searchable People directory and compatible legacy profile routes.
+- Added Following and Explore pages, signed viewer-bound cursors, stable pagination, random-start indexed discovery and stale-request cancellation.
+- Added post-publication Redis warming, a bounded shared recent pool, older-post SQL fallback and isolated personalized selection.
+- Added API/client regressions and feed architecture/tradeoff documentation.
+
 ## Account lifecycle, privacy controls and quality-gated delivery
 
 - Added private signup email, versioned terms acknowledgement, separate notification consent and ownership verification.
