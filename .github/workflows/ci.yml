@@ -93,22 +93,22 @@ jobs:
           NODE
       - run: npm ci
       - run: npm install --global vercel@50.5.0
-      - run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-      - run: vercel build --prod --token="$VERCEL_TOKEN"
+      - run: vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+      - run: vercel build --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
       - name: Stage and verify the tested revision before promotion
         shell: bash
         run: |
           current=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
           if [ "$current" != "$GITHUB_SHA" ]; then echo "A newer revision is queued; skipping this deployment."; exit 0; fi
-          url=$(vercel deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          url=$(vercel deploy --prebuilt --prod --skip-domain --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN")
           echo "Staged deployment: $url"
-          vercel curl /api/health --deployment="$url" --token="$VERCEL_TOKEN" > /tmp/health.json
+          vercel curl /api/health --deployment="$url" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN" > /tmp/health.json
           node -e 'const fs=require("fs");if(JSON.parse(fs.readFileSync("/tmp/health.json")).status!=="ok")process.exit(1)'
-          vercel curl '/api/artworks?limit=1' --deployment="$url" --token="$VERCEL_TOKEN" > /tmp/gallery.json
+          vercel curl '/api/artworks?limit=1' --deployment="$url" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN" > /tmp/gallery.json
           node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/gallery.json"));if(!Array.isArray(x.items))process.exit(1)'
           current=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
           if [ "$current" != "$GITHUB_SHA" ]; then echo "A newer revision arrived; leaving this deployment staged."; exit 0; fi
-          vercel promote "$url" --yes --token="$VERCEL_TOKEN"
+          vercel promote "$url" --yes --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
       - name: Deploy the notification processor after quality checks
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
