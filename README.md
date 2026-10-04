@@ -4,7 +4,7 @@ A full-stack art community built with Angular 21, TypeScript, RxJS, NgRx SignalS
 
 **Live app:** [gallery-web-app-two.vercel.app](https://gallery-web-app-two.vercel.app)
 
-Firestore stores artwork documents. Supabase PostgreSQL stores accounts, relationships and security records; Supabase Storage serves validated images. Upstash Redis caches public data and accelerates durable authorization checks. Angular and Express share one origin on Vercel.
+MongoDB Atlas stores artwork documents. Supabase PostgreSQL stores accounts, relationships and security records; Supabase Storage serves validated images. Upstash Redis caches public data and accelerates durable authorization checks. Angular and Express share one origin on Vercel.
 
 ![Atelier preview using isolated sample data](docs/preview.png)
 
@@ -33,7 +33,7 @@ The repeatable operator seed is `node --env-file=.env --import tsx scripts/seed-
 
 ## Develop against the hosted services
 
-Copy `.env.example` to the ignored `.env` file and configure PostgreSQL, Firestore and Supabase Storage. Keep server credentials outside Angular and Git. Generate a persistent signing secret:
+Copy `.env.example` to the ignored `.env` file and configure MongoDB, PostgreSQL and Supabase Storage. Keep server credentials outside Angular and Git. Run `npm run mongo:prepare` once to create/verify the artwork collection's validator. Generate a persistent signing secret:
 
 ```sh
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
@@ -48,7 +48,7 @@ Angular runs at [localhost:4200](http://localhost:4200), proxying `/api` to Expr
 - RxJS search cancellation/debouncing and NgRx SignalStore authentication state.
 - A typed Express REST API with shared contracts, parameterized queries and ownership/role checks.
 - Normalized PostgreSQL relationships, foreign keys, transactional counters, GIN full-text search and a serverless transaction pool.
-- Firestore document persistence with a SQL publication registry and compensating writes across database boundaries.
+- MongoDB document persistence with database schema validation, unique artwork IDs, a SQL publication registry and compensating writes across database boundaries.
 - Redis public caching, generation invalidation, concurrent-miss coalescing, distributed throttling and revocation fences.
 - Ten-minute JWTs and separate rotating opaque refresh secrets in Strict HttpOnly cookies; hashed refresh storage, CSRF proofs, replay detection and device/session revocation.
 - Direct signed image uploads with private staging, MIME/size/signature checks and a 5 MB limit.
@@ -62,7 +62,7 @@ The goal is a responsive application whose correctness survives cache failures a
 flowchart LR
   Browser[Angular: RxJS + NgRx SignalStore] --> API[Express REST API on Vercel]
   API --> SQL[Supabase PostgreSQL: identities, relationships, search, sessions, outbox]
-  API --> Docs[Firestore: artwork documents]
+  API --> Docs[MongoDB Atlas: artwork documents]
   Browser --> Images[Supabase Storage: signed image uploads]
   API <--> Redis[Upstash Redis: public cache, auth proofs, limits, job IDs]
   API --> Worker[Render Free HTTP notification processor]
@@ -77,21 +77,23 @@ Angular replaces the original Pug views with a routed application: standalone co
 
 RxJS debounces searches and cancels superseded requests so an old response cannot replace a newer search. NgRx SignalStore holds authentication and gallery state; components derive their views from signals rather than maintaining separate copies of the same data. Pagination limits both the response size and database work. Images load lazily, and layouts adapt to narrow screens.
 
-Express remains the Node.js REST boundary. It owns authentication, authorization, validation and database writes. The frontend never receives PostgreSQL credentials, the Firebase service-account key, Redis credentials or the Resend key. Frontend and API use one Vercel origin, which simplifies cookie handling and avoids an unnecessarily permissive cross-origin configuration.
+Express remains the Node.js REST boundary. It owns authentication, authorization, validation and database writes. The frontend never receives MongoDB or PostgreSQL credentials, Redis credentials or the Resend key. Frontend and API use one Vercel origin, which simplifies cookie handling and avoids an unnecessarily permissive cross-origin configuration.
 
 ### Database ownership and consistency
 
-| Store                         | Authoritative data                                                                                                                                                   | Why this choice                                                                                                                                                                               |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Supabase PostgreSQL           | Users/password hashes, likes, follows, reviews, workshops/enrollments, sessions, refresh hashes, token denials, upload reservations, notification preferences/outbox | Relationships benefit from foreign keys, unique constraints and atomic transactions. A duplicate like cannot create a second relationship or increment its counter twice.                     |
-| Firestore Standard            | Full artwork documents: identity, artist reference, title, medium, description, image URL                                                                            | Document storage fits artwork content. Its no-billing Spark deployment meets the portfolio budget. Firestore is a different database from MongoDB; Firebase does not host a MongoDB database. |
-| PostgreSQL artwork projection | Searchable artwork metadata, description preview, image reference, publication status and aggregate counts                                                           | SQL search and listing avoid scanning Firestore documents or fetching one document per gallery card.                                                                                          |
-| Supabase Storage              | Validated image bytes; private upload staging and immutable public images                                                                                            | Large files belong in object storage, not SQL rows, documents or Redis. Signed direct uploads avoid routing image bytes through the Vercel function.                                          |
-| Upstash Redis                 | Expiring derived data and queue hints                                                                                                                                | Repeated reads become cheaper, while durable records remain recoverable from their source stores.                                                                                             |
+| Store                         | Authoritative data                                                                                                                                                   | Why this choice                                                                                                                                                                          |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Supabase PostgreSQL           | Users/password hashes, likes, follows, reviews, workshops/enrollments, sessions, refresh hashes, token denials, upload reservations, notification preferences/outbox | Relationships benefit from foreign keys, unique constraints and atomic transactions. A duplicate like cannot create a second relationship or increment its counter twice.                |
+| MongoDB Atlas Free            | Full artwork documents: identity, artist reference, title, medium, description, image URL                                                                            | Document storage fits artwork content; strict JSON Schema validation constrains shape/types. The Free M0 cluster meets the portfolio budget and demonstrates active MongoDB integration. |
+| PostgreSQL artwork projection | Searchable artwork metadata, description preview, image reference, publication status and aggregate counts                                                           | SQL search and listing avoid scanning MongoDB documents or fetching one document per gallery card.                                                                                       |
+| Supabase Storage              | Validated image bytes; private upload staging and immutable public images                                                                                            | Large files belong in object storage, not SQL rows, documents or Redis. Signed direct uploads avoid routing image bytes through the Vercel function.                                     |
+| Upstash Redis                 | Expiring derived data and queue hints                                                                                                                                | Repeated reads become cheaper, while durable records remain recoverable from their source stores.                                                                                        |
 
-MongoDB is retained in the read-only legacy migration tool. It is **not** an active production database. The original document catalog was normalized into Firestore and PostgreSQL. This demonstrates migration from MongoDB and relational modeling, without claiming the live app runs MongoDB.
+MongoDB is the active non-relational database. Each document uses its original artwork ID as the unique, indexed `_id`; the API translates it back to the shared `id` contract. Descriptions stay intact, image bytes stay in Storage, and accounts/likes/comments remain in PostgreSQL. The native Node.js MongoDB driver reuses one client per warm API instance, with at most three pooled connections per server, zero minimum idle connections, 30-second idle expiry and bounded selection/operation/wait times. Monitoring sockets are additional, so the pool cap is not a total application connection cap. These choices limit connection growth on serverless hosting; they do not remove Atlas's free-tier capacity limits. See [MongoDB connection pooling](https://www.mongodb.com/docs/drivers/node/current/connect/connection-options/connection-pools/).
 
-An artwork publication crosses two databases, so it cannot be one ACID transaction. The API reserves a SQL record as `pending`, creates its Firestore document, then marks the search projection `published`. Public queries show only published rows. Ambiguous failures preserve documents/images for reconciliation instead of deleting a possibly successful write. Import tooling uses stable IDs and refuses conflicting records; rerunning a seed preserves credentials and prevents duplicates.
+All 30 hosted artwork documents were copied from Firestore and verified field by field against the retained snapshot and existing SQL projections. IDs, demo credentials, likes, comments, sessions and image URLs were preserved. Firestore remains a retained migration source; the optional adapter is selected only by an explicit `ARTWORK_BACKEND=firestore` rollback configuration. A MongoDB failure never silently switches stores. See [the cutover and rollback procedure](docs/MIGRATION.md).
+
+An artwork publication crosses two databases, so it cannot be one ACID transaction. The API reserves a SQL record as `pending`, creates its MongoDB document with majority write acknowledgement, then marks the search projection `published`. Public queries show only published rows. Ambiguous failures preserve documents/images for reconciliation instead of deleting a possibly successful write. Import tooling uses stable IDs and refuses conflicting records; rerunning a seed preserves credentials and prevents duplicates.
 
 PostgreSQL uses parameterized queries, indexed foreign-key access paths, recent/category/artist indexes and a GIN full-text index. Counts update in the same transaction as the relationship they summarize. A transaction-mode Supavisor pool, unnamed queries, a one-connection limit per warm function and timeouts bound connection pressure. Increasing traffic still requires measuring query latency and provider quotas; these choices do not prove unlimited throughput.
 
@@ -118,7 +120,7 @@ Redis revocation fences invalidate cached proofs **before** security state chang
 - **CSRF defense:** Strict cookies are paired with signed, session-bound CSRF proofs, Origin checks and Fetch Metadata checks for browser mutations. SameSite alone is not treated as a complete defense, especially for same-site subdomains. The readable XSRF cookie is a request proof, not an authentication credential.
 - **XSS mitigation:** Reviews, titles and descriptions are treated as plain text. Angular escapes interpolated output; email templates also encode user-controlled text. Strings containing `<script>` display as text rather than executable markup. Bounds/control-character validation, a CSP restricting scripts to the app, blocked objects/framing and avoiding untrusted `innerHTML` reduce attack surface. HttpOnly does not stop injected JavaScript from making authenticated requests, and no single layer completely prevents XSS.
 - **Server checks:** Authentication, role and ownership checks happen in Express. SQL parameters prevent query injection. Passwords use salted scrypt hashes. Distributed rate limits bound general/auth requests; validation and response limits constrain resource use. Internal worker and recovery endpoints use independent server secrets.
-- **Files and credentials:** Raster upload MIME, byte length and file signatures are validated with a 5 MB limit. Private staging precedes public promotion. Firestore browser rules deny direct access; the dedicated server identity has narrow IAM permissions. The private SQL schema has RLS and no browser roles. The mail processor uses a separate SQL role and email encryption key; it never receives the JWT signing secret, Firebase key or Supabase storage service key.
+- **Files and credentials:** Raster upload MIME, byte length and file signatures are validated with a 5 MB limit. Private staging precedes public promotion. MongoDB requires verified TLS and a database user restricted to Gallery's database/cluster; Express enforces ownership. The private SQL schema has RLS and no browser roles. The mail processor uses a separate SQL role and email encryption key; it never receives the JWT signing secret, MongoDB credentials or Supabase storage service key. Vercel Hobby has varying outbound IPs, so the dedicated Atlas project uses a broad network allowlist; this is a free-hosting tradeoff, not private-network isolation.
 
 ### Redis: what is cached and what is not
 
@@ -126,7 +128,7 @@ Public gallery searches/statistics, artwork details and review pages, artist pro
 
 User-specific `liked`, `following`, enrollment and review-ownership flags are overlaid from PostgreSQL after the shared cache read. They are not shared between users. Redis also holds short-lived authorization proofs and distributed rate-limit counters. Raw JWTs, plaintext refresh secrets, password hashes and email bodies are not stored in Redis. Queue entries contain notification UUIDs only.
 
-Public cache failures fall back to SQL/Firestore. Redis is an accelerator, not the authority for likes or comments. A request still writes each like durably; moving these writes into a volatile cache-only buffer would trade correctness for apparent speed.
+Public cache failures fall back to SQL/MongoDB. Redis is an accelerator, not the authority for likes or comments. A request still writes each like durably; moving these writes into a volatile cache-only buffer would trade correctness for apparent speed. A stable `REDIS_SCOPE_ID` keeps cached authorization and notification scheduling in the same namespace through the database switch; both API and processor share it.
 
 ## Asynchronous email notifications
 
@@ -171,7 +173,7 @@ The deployed queue/processor/provider path passed both Resend's delivery simulat
 
 ## Configuration and checks
 
-See [.env.example](.env.example) for all variables and [deployment](docs/DEPLOYMENT.md) for the existing cloud resources. Server configuration includes `DATABASE_URL`, the trusted `DATABASE_CA_CERT`, `FIREBASE_PROJECT_ID`, single-quoted serialized `FIREBASE_SERVICE_ACCOUNT_JSON`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a persistent `JWT_SECRET` of at least 32 random characters.
+See [.env.example](.env.example) for all variables and [deployment](docs/DEPLOYMENT.md) for the existing cloud resources. Server configuration includes `MONGODB_URI`, `MONGODB_DATABASE=gallery`, `ARTWORK_BACKEND=mongodb`, `DATABASE_URL`, the trusted `DATABASE_CA_CERT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a persistent `JWT_SECRET` of at least 32 random characters. Firebase credentials are retained locally only for deliberate export/rollback operations.
 
 Use both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`, or `REDIS_URL` for TCP/TLS Redis. Redis is optional locally. With configured Redis unavailable, public reads fall back to the databases and authorization reads fall back to PostgreSQL. Revocation/refresh writes return 503 if their distributed fence cannot be acquired.
 
@@ -192,7 +194,7 @@ The production dependency audit reports zero vulnerabilities. The full audit cur
 
 ## Data migration and operating limits
 
-MongoDB is now used only by the explicit legacy exporter, as a development dependency. Existing source data and `uploads/` are preserved. The hosted database is populated from the recovered catalog described above. Migrating additional original activity requires a reachable legacy database and an operator-reviewed snapshot. See [migration and rollback](docs/MIGRATION.md).
+The live API uses the native MongoDB driver. Mongoose remains a development dependency for the explicit read-only legacy exporter. Existing source data and `uploads/` are preserved. The hosted database is populated from the recovered catalog described above. Migrating additional original activity requires a reachable legacy database and an operator-reviewed snapshot. Tests use a real temporary MongoDB 8 server; its binary downloads on the first test run, not during production installation. See [migration and rollback](docs/MIGRATION.md).
 
 This portfolio deployment uses free plans. Free quotas, cold starts, provider outages and inactive-project suspension still apply. Requests are bounded to avoid unnecessary database work; this is not an unlimited-capacity service. Monitor provider dashboards, run maintenance regularly, and keep manual backups. No paid upgrades, Google billing account, Docker or custom CI pipeline are configured.
 

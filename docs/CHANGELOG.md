@@ -1,5 +1,14 @@
 # Modernization change log
 
+## MongoDB document-store cutover and diagram repair
+
+- Fixed the Mermaid sequence diagram's unescaped semicolon and validated all three documented diagrams with the Mermaid parser.
+- Added the native MongoDB driver, a bounded reusable pool, verified production TLS, majority writes and strict artwork collection validation.
+- Provisioned a dedicated free Atlas project/cluster and database-scoped credentials, preserving existing Atlas projects.
+- Exported and verified all 30 current Firestore artworks, copied them without modifying SQL relationships/accounts/security records, and verified a duplicate-free rerun.
+- Added explicit migration/rollback selection, a temporary publication pause, conflict/ambiguous-write tests and stable Redis scope configuration.
+- Updated architecture, security, migration, deployment and notification documentation for active MongoDB storage; Firestore remains a retained migration source.
+
 ## 1. Clean up and repair the original application
 
 - Corrected case-sensitive model imports and removed unused packages, vendor fixtures, and duplicate documentation.
