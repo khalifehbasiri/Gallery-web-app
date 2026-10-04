@@ -280,7 +280,7 @@ describe('PostgreSQL API and cookie security', () => {
   });
   it('searches indexed SQL projections and rejects malformed filters and pagination', async () => {
     const result = await request(app)
-      .get('/api/artworks?search=color&limit=1')
+      .get('/api/artworks?search=demonstration&limit=1')
       .expect(200);
     assert.equal(result.body.total, 6);
     assert.equal(result.body.items.length, 1);

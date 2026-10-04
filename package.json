@@ -34,7 +34,8 @@
     "check": "tsc -p tsconfig.server.json --noEmit && ng build --configuration development",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "demo": "node --import tsx scripts/demo.ts"
+    "demo": "node --import tsx scripts/demo.ts",
+    "images:repair": "node --env-file-if-exists=.env --import tsx scripts/repair-collection-images.ts"
   },
   "dependencies": {
     "@angular/common": "^21.2.24",

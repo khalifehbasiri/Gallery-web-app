@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -12,11 +13,13 @@ import { errorMessage } from '../core/errors';
 
 @Component({
   selector: 'app-create-artwork',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [IconComponent, RouterLink, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page-width inner-page">
-      <a class="back-link" routerLink="/account">← Back to your studio</a>
+      <a class="back-link" routerLink="/account"
+        ><app-icon name="arrow-left" /> Back to your studio</a
+      >
       <div class="section-heading">
         <div>
           <p class="eyebrow">FROM YOUR STUDIO TO THE WORLD</p>
@@ -31,7 +34,7 @@ import { errorMessage } from '../core/errors';
             @if (preview()) {
               <img [src]="preview()" alt="Preview of your uploaded artwork" />
             } @else {
-              <span class="empty-mark">↗</span>
+              <span class="empty-mark"><app-icon name="arrow-up-right" /></span>
               <p>A new perspective belongs here.</p>
             }
           </div>
@@ -89,7 +92,10 @@ import { errorMessage } from '../core/errors';
             <p class="error" role="alert">{{ error() }}</p>
           }
           <button class="button full-width" [disabled]="busy()">
-            {{ busy() ? 'Publishing…' : 'Publish artwork ↗' }}
+            {{ busy() ? 'Publishing…' : 'Publish artwork' }}
+            @if (!busy()) {
+              <app-icon name="arrow-up-right" />
+            }
           </button>
         </div>
       </form>

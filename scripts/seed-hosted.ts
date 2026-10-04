@@ -1,3 +1,9 @@
+import {
+  collectionImages,
+  demoCollectionEntries,
+  demoCollectionDescription,
+  referenceImageDescription,
+} from '../shared/collection-images.js';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, readdir, mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -41,6 +47,7 @@ try {
     [],
     original.map((a) => ({ ...a, image: a.image.replace(/^http:/, 'https:') })),
   );
+  let referenceIndex = 0;
   for (const [index, art] of snapshot.artworks.entries()) {
     try {
       const prepared = await prepareSnapshotAssets(
@@ -53,17 +60,14 @@ try {
         `Restored original image ${index + 1}/${snapshot.artworks.length}.`,
       );
     } catch {
-      art.imageUrl = `${config.clientOrigin}/${['hero-art.svg', 'blue-hour.svg', 'paper-study.svg'][index % 3]}`;
-      art.description =
-        `Image note: the original image is unavailable; the illustration shown is a sample placeholder.\n\n${art.description}`.slice(
-          0,
-          10000,
-        );
+      const image = collectionImages.slice(6)[referenceIndex++ % 18]!;
+      art.imageUrl = `${config.clientOrigin}/artworks/${image.file}`;
+      art.description = referenceImageDescription(image, art.description);
       snapshot.warnings.push(
-        `Original image unavailable: ${art.id}. Sample illustration substituted.`,
+        `Original image unavailable: ${art.id}. Credited reference image substituted.`,
       );
       console.log(
-        `Preserved artwork ${index + 1}/${snapshot.artworks.length} with a labeled sample image.`,
+        `Preserved artwork ${index + 1}/${snapshot.artworks.length} with a credited reference image.`,
       );
     }
   }
@@ -79,61 +83,16 @@ try {
     { id: artist, username: 'Maya Laurent', role: 'artist', passwordHash },
     { id: patron, username: 'demo', role: 'patron', passwordHash },
   );
-  const samples = [
-    [
-      'A different perspective',
-      'hero-art.svg',
-      'Painting',
-      'Acrylic & digital',
-      '2026',
-    ],
-    [
-      'The quiet between',
-      'blue-hour.svg',
-      'Digital',
-      'Digital illustration',
-      '2025',
-    ],
-    [
-      'Collected moments',
-      'paper-study.svg',
-      'Mixed media',
-      'Paper & pigment',
-      '2026',
-    ],
-    [
-      'An ordinary kind of magic',
-      'paper-study.svg',
-      'Mixed media',
-      'Hand-cut collage',
-      '2024',
-    ],
-    [
-      'Where the light stays',
-      'hero-art.svg',
-      'Painting',
-      'Acrylic on linen',
-      '2025',
-    ],
-    [
-      'Before the city wakes',
-      'blue-hour.svg',
-      'Digital',
-      'Digital painting',
-      '2026',
-    ],
-  ];
-  for (const [title, image, category, medium, year] of samples)
+  for (const { image, seedKey } of demoCollectionEntries)
     snapshot.artworks.push({
-      id: stable(title!),
+      id: stable(seedKey),
       artistId: artist,
-      title: title!,
-      imageUrl: `${config.clientOrigin}/${image}`,
-      category: category!,
-      medium: medium!,
-      year: year!,
-      description:
-        'Portfolio sample illustration: a study of color, composition, and everyday moments.',
+      title: image.title,
+      imageUrl: `${config.clientOrigin}/artworks/${image.file}`,
+      category: 'Painting',
+      medium: image.medium,
+      year: image.year,
+      description: demoCollectionDescription(image),
     });
   snapshot.workshops.push({
     id: 'hosted-demo-workshop',
@@ -142,12 +101,15 @@ try {
     goal: 'Explore color and composition.',
     weeks: 3,
   });
-  snapshot.likes.push({ userId: patron, artworkId: stable(samples[0]![0]!) });
+  snapshot.likes.push({
+    userId: patron,
+    artworkId: stable(demoCollectionEntries[0]!.seedKey),
+  });
   snapshot.follows.push({ userId: patron, artistId: artist });
   snapshot.reviews.push({
     id: 'hosted-demo-review',
     userId: patron,
-    artworkId: stable(samples[0]![0]!),
+    artworkId: stable(demoCollectionEntries[0]!.seedKey),
     text: 'Sample review: I love the balance of color and shape.',
   });
   await writeFile(filename, JSON.stringify(snapshot, null, 2), { flag: 'wx' });
@@ -165,8 +127,8 @@ try {
       accounts: snapshot.users.length,
       artworks: snapshot.artworks.length,
       workshops: snapshot.workshops.length,
-      substitutedImages: snapshot.warnings.filter((w) =>
-        w.includes('Sample illustration substituted'),
+      referenceImages: snapshot.warnings.filter((w) =>
+        w.includes('Credited reference image substituted'),
       ).length,
     }),
   );

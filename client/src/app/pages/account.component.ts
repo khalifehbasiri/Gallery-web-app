@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -19,6 +20,7 @@ import { AccountSettingsComponent } from '../shared/account-settings.component';
 @Component({
   selector: 'app-account',
   imports: [
+    IconComponent,
     RouterLink,
     ArtCardComponent,
     WorkshopCardComponent,
@@ -86,7 +88,8 @@ import { AccountSettingsComponent } from '../shared/account-settings.component';
         </div>
         <div class="account-tool-actions">
           @if (auth.isArtist()) {
-            <a class="button" routerLink="/artworks/new">Publish artwork ↗</a
+            <a class="button" routerLink="/artworks/new"
+              >Publish artwork <app-icon name="arrow-up-right" /></a
             ><a class="button button-outline" routerLink="/workshops/new"
               >Host a workshop</a
             >
@@ -97,7 +100,10 @@ import { AccountSettingsComponent } from '../shared/account-settings.component';
               [disabled]="busy()"
               (click)="changeRole()"
             >
-              {{ auth.isArtist() ? 'Switch to patron' : 'Become an artist ↗' }}
+              {{ auth.isArtist() ? 'Switch to patron' : 'Become an artist' }}
+              @if (!auth.isArtist()) {
+                <app-icon name="arrow-up-right" />
+              }
             </button>
           }
         </div>
@@ -119,7 +125,9 @@ import { AccountSettingsComponent } from '../shared/account-settings.component';
           <div class="empty-state">
             <h3>Start with something you love.</h3>
             <p>Save an artwork to find it here.</p>
-            <a routerLink="/" class="text-link">Explore the collection →</a>
+            <a routerLink="/" class="text-link"
+              >Explore the collection <app-icon name="arrow-right"
+            /></a>
           </div>
         }
         <div class="section-heading">
@@ -131,8 +139,9 @@ import { AccountSettingsComponent } from '../shared/account-settings.component';
               ><span class="avatar">{{
                 person.username.charAt(0).toUpperCase()
               }}</span
-              >{{ person.username }}<span>↗</span></a
-            >
+              >{{ person.username
+              }}<span><app-icon name="arrow-up-right" /></span
+            ></a>
           }
         </div>
         @if (!data.following.length) {
@@ -146,8 +155,9 @@ import { AccountSettingsComponent } from '../shared/account-settings.component';
             <a
               class="account-review"
               [routerLink]="['/artworks', review.artworkId]"
-              >“{{ review.text }}” <span>View artwork ↗</span></a
-            >
+              >“{{ review.text }}”
+              <span>View artwork <app-icon name="arrow-up-right" /></span
+            ></a>
           }
         }
         @if (auth.isArtist()) {

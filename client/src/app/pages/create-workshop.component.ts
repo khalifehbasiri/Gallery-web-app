@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -12,11 +13,13 @@ import { errorMessage } from '../core/errors';
 
 @Component({
   selector: 'app-create-workshop',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [IconComponent, RouterLink, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page-width inner-page">
-      <a class="back-link" routerLink="/account">← Back to your studio</a>
+      <a class="back-link" routerLink="/account"
+        ><app-icon name="arrow-left" /> Back to your studio</a
+      >
       <div class="section-heading">
         <div>
           <p class="eyebrow">INVITE A LITTLE CREATIVE COMPANY</p>
@@ -54,7 +57,10 @@ import { errorMessage } from '../core/errors';
           <p class="error" role="alert">{{ error() }}</p>
         }
         <button class="button full-width" [disabled]="busy()">
-          {{ busy() ? 'Creating…' : 'Create workshop ↗' }}
+          {{ busy() ? 'Creating…' : 'Create workshop' }}
+          @if (!busy()) {
+            <app-icon name="arrow-up-right" />
+          }
         </button>
       </form>
     </section>

@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -17,11 +18,13 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
 
 @Component({
   selector: 'app-artist',
-  imports: [RouterLink, ArtCardComponent, WorkshopCardComponent],
+  imports: [IconComponent, RouterLink, ArtCardComponent, WorkshopCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page-width inner-page">
-      <a routerLink="/" class="back-link">← Back to the collection</a>
+      <a routerLink="/" class="back-link"
+        ><app-icon name="arrow-left" /> Back to the collection</a
+      >
       @if (error()) {
         <p class="error" role="alert">{{ error() }}</p>
       }
@@ -52,7 +55,10 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
               [disabled]="busy()"
               (click)="follow()"
             >
-              {{ person.following ? 'Following ✓' : 'Follow ↗' }}
+              {{ person.following ? 'Following' : 'Follow' }}
+              <app-icon
+                [name]="person.following ? 'check' : 'arrow-up-right'"
+              />
             </button>
           }
         </div>

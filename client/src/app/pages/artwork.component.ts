@@ -1,4 +1,10 @@
 import {
+  collectionImage,
+  isReferenceImage,
+  isDemoCollection,
+} from '../../../../shared/collection-images';
+import { IconComponent } from '../shared/icon.component';
+import {
   ChangeDetectionStrategy,
   Component,
   effect,
@@ -21,11 +27,13 @@ import { errorMessage } from '../core/errors';
 
 @Component({
   selector: 'app-artwork',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [IconComponent, RouterLink, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page-width detail-page">
-      <a class="back-link" routerLink="/">← Back to the collection</a>
+      <a class="back-link" routerLink="/"
+        ><app-icon name="arrow-left" /> Back to the collection</a
+      >
       @if (loading()) {
         <div class="empty-state" aria-busy="true">Opening the artwork…</div>
       }
@@ -38,15 +46,33 @@ import { errorMessage } from '../core/errors';
             @if (!imageFailed()) {
               <img
                 [src]="data.artwork.imageUrl"
-                [alt]="data.artwork.title"
+                [alt]="
+                  collectionImage(data.artwork.imageUrl)?.alt ??
+                  data.artwork.title
+                "
+                decoding="async"
                 (error)="imageFailed.set(true)"
               />
             } @else {
               <span class="image-placeholder"
-                >A<span
+                ><app-icon name="image" /><span
                   >This artwork’s image is currently unavailable.</span
                 ></span
               >
+            }
+            @if (collectionImage(data.artwork.imageUrl); as image) {
+              <p class="image-credit detail-image-credit">
+                @if (isReferenceImage(data.artwork.description)) {
+                  <strong>Reference image.</strong>
+                }
+                {{ image.title }} · {{ image.creator }} · {{ image.date }}.
+                <a
+                  [href]="image.sourceUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >The Met, CC0 <app-icon name="arrow-up-right"
+                /></a>
+              </p>
             }
           </div>
           <div class="art-detail-copy">
@@ -56,8 +82,15 @@ import { errorMessage } from '../core/errors';
             <h1>{{ data.artwork.title }}</h1>
             @if (data.artist) {
               <a class="artist-link" [routerLink]="['/artists', data.artist.id]"
-                >By {{ data.artist.username }} ↗</a
-              >
+                >{{
+                  isDemoCollection(data.artwork.description)
+                    ? 'Shared by'
+                    : isReferenceImage(data.artwork.description)
+                      ? 'Original record by'
+                      : 'By'
+                }}
+                {{ data.artist.username }} <app-icon name="arrow-up-right"
+              /></a>
             } @else {
               <p>By {{ data.artwork.artist }}</p>
             }
@@ -81,10 +114,11 @@ import { errorMessage } from '../core/errors';
               [disabled]="liking()"
               (click)="like()"
             >
+              <app-icon name="heart" [filled]="data.artwork.liked" />
               {{
                 data.artwork.liked
-                  ? '♥ Saved to your collection'
-                  : '♡ Save to your collection'
+                  ? 'Saved to your collection'
+                  : 'Save to your collection'
               }}
             </button>
           </div>
@@ -114,7 +148,10 @@ import { errorMessage } from '../core/errors';
                 placeholder="Share a thought, a feeling, or a question…"
               ></textarea
               ><button class="button button-small" [disabled]="reviewBusy()">
-                {{ reviewBusy() ? 'Posting…' : 'Post your review ↗' }}
+                {{ reviewBusy() ? 'Posting…' : 'Post your review' }}
+                @if (!reviewBusy()) {
+                  <app-icon name="arrow-up-right" />
+                }
               </button>
             </form>
           } @else {
@@ -162,6 +199,9 @@ import { errorMessage } from '../core/errors';
   `,
 })
 export class ArtworkComponent {
+  readonly collectionImage = collectionImage;
+  readonly isReferenceImage = isReferenceImage;
+  readonly isDemoCollection = isDemoCollection;
   readonly id = input.required<string>();
   readonly auth = inject(AuthStore);
   private readonly api = inject(ApiService);

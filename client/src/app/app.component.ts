@@ -1,3 +1,4 @@
+import { IconComponent } from './shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,7 +17,7 @@ import { DOCUMENT } from '@angular/common';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [IconComponent, RouterLink, RouterLinkActive, RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <a class="skip-link" href="#main" (click)="skipToContent($event)"
@@ -57,8 +58,8 @@ import { DOCUMENT } from '@angular/common';
         } @else {
           <a class="text-button" routerLink="/login">Sign in</a
           ><a class="button button-small" routerLink="/register"
-            >Join the community ↗</a
-          >
+            >Join the community <app-icon name="arrow-up-right"
+          /></a>
         }
       </div>
     </header>

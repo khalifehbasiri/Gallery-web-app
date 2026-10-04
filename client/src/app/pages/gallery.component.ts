@@ -1,3 +1,5 @@
+import { featuredImage } from '../../../../shared/collection-images';
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,7 +18,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
 
 @Component({
   selector: 'app-gallery',
-  imports: [ReactiveFormsModule, RouterLink, ArtCardComponent],
+  imports: [IconComponent, ReactiveFormsModule, RouterLink, ArtCardComponent],
   providers: [GalleryStore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -33,10 +35,11 @@ import { ArtCardComponent } from '../shared/art-card.component';
         </p>
         <div class="hero-actions">
           <a class="button" href="#collection"
-            >Explore the collection <span>↗</span></a
+            >Explore the collection
+            <span><app-icon name="arrow-up-right" /></span></a
           ><a class="text-link" routerLink="/workshops"
-            >Learn with an artist →</a
-          >
+            >Learn with an artist <app-icon name="arrow-right"
+          /></a>
         </div>
         <div class="hero-stats">
           <div>
@@ -56,14 +59,23 @@ import { ArtCardComponent } from '../shared/art-card.component';
       <div class="hero-art">
         <div class="hero-image-frame">
           <img
-            src="/hero-art.svg"
-            alt="Abstract artwork with terracotta arches, a green circle, and warm geometric shapes"
+            [src]="'/artworks/' + featured.file"
+            [alt]="featured.alt"
+            [width]="featured.width"
+            [height]="featured.height"
+            fetchpriority="high"
+            decoding="async"
           />
           <div class="hero-art-caption">
-            <span>A different perspective.</span><span>Make it yours. ↗</span>
+            <span>{{ featured.title }} · {{ featured.creator }}</span
+            ><a
+              [href]="featured.sourceUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              >The Met, CC0 <app-icon name="arrow-up-right"
+            /></a>
           </div>
         </div>
-        <span class="hero-stamp">CURATED BY CURIOSITY</span>
       </div>
     </section>
     <section id="collection" class="collection page-width">
@@ -74,8 +86,8 @@ import { ArtCardComponent } from '../shared/art-card.component';
         </div>
         @if (auth.isArtist()) {
           <a class="button button-outline" routerLink="/artworks/new"
-            >Publish your work ↗</a
-          >
+            >Publish your work <app-icon name="arrow-up-right"
+          /></a>
         }
       </div>
       <form
@@ -84,7 +96,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
         aria-label="Filter artworks"
       >
         <label class="search-field"
-          ><span aria-hidden="true">⌕</span
+          ><span aria-hidden="true"><app-icon name="search" /></span
           ><span class="sr-only">Search artworks</span
           ><input
             formControlName="search"
@@ -133,7 +145,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
         </div>
       } @else if (!store.items().length) {
         <div class="empty-state">
-          <span class="empty-mark">↗</span>
+          <span class="empty-mark"><app-icon name="arrow-up-right" /></span>
           <h3>A little room for possibility.</h3>
           <p>
             No artworks match these filters. Try another search or share the
@@ -162,7 +174,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
               [disabled]="store.query().page <= 1 || store.loading()"
               (click)="page(-1)"
             >
-              ← Previous</button
+              <app-icon name="arrow-left" /> Previous</button
             ><span>{{ store.query().page }} / {{ store.pages() }}</span
             ><button
               class="button button-outline button-small"
@@ -171,7 +183,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
               "
               (click)="page(1)"
             >
-              Next →
+              Next <app-icon name="arrow-right" />
             </button>
           </div>
         </nav>
@@ -190,16 +202,15 @@ import { ArtCardComponent } from '../shared/art-card.component';
         <a
           class="button button-light"
           [routerLink]="auth.signedIn() ? '/account' : '/register'"
-          >{{
-            auth.signedIn() ? 'Open your collection' : 'Find your people'
-          }}
-          ↗</a
-        >
+          >{{ auth.signedIn() ? 'Open your collection' : 'Find your people' }}
+          <app-icon name="arrow-up-right"
+        /></a>
       </div>
     </section>
   `,
 })
 export class GalleryComponent {
+  readonly featured = featuredImage;
   readonly store = inject(GalleryStore);
   readonly auth = inject(AuthStore);
   readonly stats = signal<GalleryStats | null>(null);

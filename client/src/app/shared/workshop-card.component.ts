@@ -1,3 +1,4 @@
+import { IconComponent } from './icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,7 +16,7 @@ import { errorMessage } from '../core/errors';
 
 @Component({
   selector: 'app-workshop-card',
-  imports: [RouterLink],
+  imports: [IconComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="workshop-card">
@@ -25,8 +26,8 @@ import { errorMessage } from '../core/errors';
       <h3>{{ workshop().name }}</h3>
       <p>{{ workshop().goal }}</p>
       <a [routerLink]="['/artists', workshop().artistId]"
-        >Led by {{ workshop().artist }} ↗</a
-      >
+        >Led by {{ workshop().artist }} <app-icon name="arrow-up-right"
+      /></a>
       <div class="workshop-card-bottom">
         <span
           >{{ workshop().attendeeCount }}
@@ -38,7 +39,10 @@ import { errorMessage } from '../core/errors';
           [disabled]="busy() || workshop().joined"
           (click)="join()"
         >
-          {{ workshop().joined ? 'You’re on the list ✓' : 'Join workshop' }}
+          {{ workshop().joined ? 'You’re on the list' : 'Join workshop' }}
+          @if (workshop().joined) {
+            <app-icon name="check" />
+          }
         </button>
       </div>
       @if (error()) {

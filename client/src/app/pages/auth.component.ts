@@ -1,3 +1,5 @@
+import { featuredImage } from '../../../../shared/collection-images';
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -11,7 +13,7 @@ import { errorMessage } from '../core/errors';
 
 @Component({
   selector: 'app-auth',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [IconComponent, ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="auth-layout page-width">
@@ -26,7 +28,25 @@ import { errorMessage } from '../core/errors';
           Discover art that speaks to you. Build your collection. Find a
           community that makes you want to create.
         </p>
-        <img src="/hero-art.svg" alt="Warm abstract geometric artwork" />
+        <figure class="auth-artwork">
+          <img
+            [src]="'/artworks/' + featured.file"
+            [alt]="featured.alt"
+            [width]="featured.width"
+            [height]="featured.height"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption class="image-credit">
+            {{ featured.title }} · {{ featured.creator }}.
+            <a
+              [href]="featured.sourceUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              >The Met, CC0</a
+            >
+          </figcaption>
+        </figure>
       </div>
       <div class="form-panel">
         <p class="eyebrow">
@@ -98,9 +118,12 @@ import { errorMessage } from '../core/errors';
               busy()
                 ? 'One moment…'
                 : registering
-                  ? 'Join the community ↗'
-                  : 'Sign in ↗'
+                  ? 'Join the community'
+                  : 'Sign in'
             }}
+            @if (!busy()) {
+              <app-icon name="arrow-up-right" />
+            }
           </button>
         </form>
         @if (!registering) {
@@ -119,6 +142,7 @@ import { errorMessage } from '../core/errors';
   `,
 })
 export class AuthComponent {
+  readonly featured = featuredImage;
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthStore);

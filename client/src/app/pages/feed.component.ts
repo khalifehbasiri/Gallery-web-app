@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink, RouterLinkActive } from '@angular/router';
 import { toObservable } from '@angular/core/rxjs-interop';
@@ -8,7 +9,7 @@ import { AuthStore } from '../core/auth.store';
 import { ArtCardComponent } from '../shared/art-card.component';
 @Component({
   selector: 'app-feed',
-  imports: [RouterLink, RouterLinkActive, ArtCardComponent],
+  imports: [IconComponent, RouterLink, RouterLinkActive, ArtCardComponent],
   providers: [FeedStore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -33,7 +34,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
           (click)="refresh()"
           [disabled]="store.loading()"
         >
-          Refresh feed ↻
+          Refresh feed <app-icon name="refresh" />
         </button>
       </div>
       <nav class="feed-tabs" aria-label="Artwork feeds">
@@ -41,7 +42,8 @@ import { ArtCardComponent } from '../shared/art-card.component';
         @if (auth.signedIn()) {
           <a routerLink="/following" routerLinkActive="active">Following</a>
         }
-        <a routerLink="/people">Find people ↗</a
+        <a routerLink="/people"
+          >Find people <app-icon name="arrow-up-right" /></a
         ><a routerLink="/">Search the collection</a>
       </nav>
       @if (
@@ -51,7 +53,10 @@ import { ArtCardComponent } from '../shared/art-card.component';
       ) {
         <p class="feed-notice">
           You’re not following anyone yet. Here are some random discoveries to
-          start with. <a routerLink="/people">Find your people →</a>
+          start with.
+          <a routerLink="/people"
+            >Find your people <app-icon name="arrow-right"
+          /></a>
         </p>
       }
       @if (store.error()) {
@@ -109,7 +114,10 @@ import { ArtCardComponent } from '../shared/art-card.component';
             (click)="more()"
             [disabled]="store.loading()"
           >
-            {{ store.loading() ? 'Loading…' : 'Load more artwork ↓' }}
+            {{ store.loading() ? 'Loading…' : 'Load more artwork' }}
+            @if (!store.loading()) {
+              <app-icon name="arrow-down" />
+            }
           </button>
         </div>
       }

@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,7 +15,7 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
 
 @Component({
   selector: 'app-workshops',
-  imports: [RouterLink, WorkshopCardComponent],
+  imports: [IconComponent, RouterLink, WorkshopCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="page-width inner-page">
@@ -28,7 +29,9 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
           </p>
         </div>
         @if (auth.isArtist()) {
-          <a class="button" routerLink="/workshops/new">Host a workshop ↗</a>
+          <a class="button" routerLink="/workshops/new"
+            >Host a workshop <app-icon name="arrow-up-right"
+          /></a>
         }
       </div>
       @if (error()) {
@@ -64,14 +67,14 @@ import { WorkshopCardComponent } from '../shared/workshop-card.component';
             [disabled]="page() <= 1 || loading()"
             (click)="load(page() - 1)"
           >
-            ← Previous</button
+            <app-icon name="arrow-left" /> Previous</button
           ><span>{{ page() }} / {{ result()?.pages }}</span
           ><button
             class="button button-outline"
             [disabled]="page() >= (result()?.pages ?? 0) || loading()"
             (click)="load(page() + 1)"
           >
-            Next →
+            Next <app-icon name="arrow-right" />
           </button>
         </nav>
       }

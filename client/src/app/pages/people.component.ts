@@ -1,3 +1,4 @@
+import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -22,7 +23,7 @@ import { AuthStore } from '../core/auth.store';
 import { errorMessage } from '../core/errors';
 @Component({
   selector: 'app-people',
-  imports: [RouterLink, ReactiveFormsModule],
+  imports: [IconComponent, RouterLink, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<section class="page-width inner-page">
     <p class="eyebrow">THE PEOPLE BEHIND THE GALLERY</p>
@@ -34,7 +35,9 @@ import { errorMessage } from '../core/errors';
     <nav class="feed-tabs" aria-label="Community navigation">
       <a routerLink="/explore">Explore</a>
       @if (auth.signedIn()) {
-        <a routerLink="/following">Your Following feed →</a>
+        <a routerLink="/following"
+          >Your Following feed <app-icon name="arrow-right"
+        /></a>
       }
     </nav>
     <label class="people-search" for="people-search"
@@ -67,10 +70,15 @@ import { errorMessage } from '../core/errors';
                 [disabled]="busy()"
                 (click)="follow(person)"
               >
-                {{ person.following ? 'Following ✓' : 'Follow ↗' }}
+                {{ person.following ? 'Following' : 'Follow' }}
+                <app-icon
+                  [name]="person.following ? 'check' : 'arrow-up-right'"
+                />
               </button>
             } @else {
-              <a routerLink="/account">Your account →</a>
+              <a routerLink="/account"
+                >Your account <app-icon name="arrow-right"
+              /></a>
             }
           </article>
         }
@@ -85,14 +93,14 @@ import { errorMessage } from '../core/errors';
             [disabled]="page() <= 1"
             (click)="navigate(page() - 1)"
           >
-            ← Previous</button
+            <app-icon name="arrow-left" /> Previous</button
           ><span>{{ page() }} / {{ result()?.pages }}</span
           ><button
             class="button button-outline"
             [disabled]="page() >= (result()?.pages ?? 0)"
             (click)="navigate(page() + 1)"
           >
-            Next →
+            Next <app-icon name="arrow-right" />
           </button>
         </nav>
       }
