@@ -11,6 +11,10 @@ import {
 } from '../server/src/local-database.js';
 import { localStorage } from '../server/src/local-storage.js';
 import { demoData } from '../server/src/demo-data.js';
+import {
+  applyCommunitySeed,
+  buildCommunitySeed,
+} from '../server/src/community-seed.js';
 if (process.env.NODE_ENV === 'production')
   throw new Error('Demo disabled in production.');
 if (!existsSync(path.join(clientDirectory, 'index.html')))
@@ -19,6 +23,20 @@ const config = readConfig({ PORT: process.env.PORT || '3000' }),
   sql = await localDatabase(),
   artworks = new LocalArtworkStore();
 await demoData(sql, artworks);
+const targets = (
+  await sql.query<{ id: string; title: string }>(
+    'SELECT id,title FROM gallery.artworks ORDER BY id',
+  )
+).rows;
+const patron = String(
+  (await sql.query("SELECT id FROM gallery.users WHERE username='demo'"))
+    .rows[0]!['id'],
+);
+await applyCommunitySeed(
+  sql,
+  artworks,
+  await buildCommunitySeed('', targets, patron),
+);
 const directory = await mkdtemp(path.join(os.tmpdir(), 'gallery-demo-'));
 const { storage, router } = localStorage(
   directory,

@@ -440,8 +440,11 @@ export function isReferenceImage(description: string) {
 export function isDemoCollection(description: string) {
   return description.startsWith('Demo collection:');
 }
-export function demoCollectionDescription(image: CollectionImage) {
-  return `Demo collection: ${image.title} by ${image.creator} (${image.date}). Public-domain image courtesy of The Metropolitan Museum of Art (CC0). Shared for demonstration by Maya Laurent; this demo account did not create the artwork.`;
+export function demoCollectionDescription(
+  image: CollectionImage,
+  sharedBy = 'Maya Laurent',
+) {
+  return `Demo collection: ${image.title} by ${image.creator} (${image.date}). Public-domain image courtesy of The Metropolitan Museum of Art (CC0). Shared for demonstration by ${sharedBy}; this demo account did not create the artwork.`;
 }
 export function referenceImageDescription(
   image: CollectionImage,

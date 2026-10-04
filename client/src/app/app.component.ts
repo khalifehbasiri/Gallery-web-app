@@ -69,7 +69,7 @@ import { DOCUMENT } from '@angular/common';
     <main id="main" tabindex="-1"><router-outlet /></main>
     <footer class="site-footer">
       <a class="brand" routerLink="/">atelier.</a>
-      <p>Art is better when it brings us together.</p>
+      <p>Portfolio demo: includes fictional profiles and sample activity.</p>
       <nav aria-label="Legal">
         <a routerLink="/privacy">Privacy</a> · <a routerLink="/terms">Terms</a>
       </nav>
