@@ -77,7 +77,7 @@ Built around established web application engineering practices, with reviewable 
 
 The [37-area engineering checklist](docs/APP_STANDARDS.md) maps every requested area to evidence and remaining work. Formal accessibility/legal review, dedicated alerts, automated backups and advanced SEO remain improvements. See [account lifecycle](docs/ACCOUNT_LIFECYCLE.md), [CI/CD](docs/CI_CD.md) and [technical legal readiness](docs/LEGAL_REVIEW.md).
 
-**CI/CD status:** the quality gate passes 78 backend and 17 Angular tests, formatting, production builds and the runtime dependency audit. GitHub production secrets are installed; Vercel's pull/build CLI requires the deployment token to access Gallery's owning team as well as the project. The workflow verifies both permissions before building a release. GitHub Actions use Node 24 internally while the app stays on Node 22. The latest app release was deployed manually while automatic deployment access was being configured. See [deployment setup, test coverage and everyday workflow usage](docs/CI_CD.md).
+**CI/CD status:** the [verified automatic release](https://github.com/khalifehbasiri/Gallery-web-app/actions/runs/37231980502) passed 78 backend and 17 Angular tests, formatting, production builds and the runtime dependency audit, then staged/smoke-tested/promoted the Vercel release and triggered Render for the same tested commit. Vercel token permissions and explicit team scope are checked/configured; Render Auto-Deploy is Off so releases use the gated hook. GitHub Actions use Node 24 internally while the app stays on Node 22. See [deployment setup, test coverage and everyday workflow usage](docs/CI_CD.md).
 
 ### Account email, recovery and privacy
 
