@@ -6,6 +6,8 @@ A full-stack art community built with Angular 21, TypeScript, RxJS, NgRx SignalS
 
 MongoDB Atlas stores artwork documents. Supabase PostgreSQL stores accounts, relationships and security records; Supabase Storage serves validated images. Upstash Redis caches public data and accelerates durable authorization checks. Angular and Express share one origin on Vercel.
 
+Vercel Web Analytics tracks page views, including Angular route changes. Analytics follows Angular's development/production mode and removes query strings and fragments from event URLs to protect recovery tokens and search text. Vercel's referrer policy sends only the origin, keeping page paths and query strings out of request referrers. No custom interaction events are configured. Enable Web Analytics in the Vercel project's Analytics tab before deploying, then verify page views in that dashboard. See the [setup guide](https://vercel.com/docs/analytics/quickstart) and the app's `/privacy` notice.
+
 ![Atelier preview with public-domain artwork in the isolated demo](docs/preview.png)
 
 ## Run the isolated portfolio demo

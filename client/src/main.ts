@@ -5,11 +5,18 @@ import {
   withComponentInputBinding,
   withInMemoryScrolling,
 } from '@angular/router';
-import { inject, provideAppInitializer } from '@angular/core';
+import { inject, isDevMode, provideAppInitializer } from '@angular/core';
+import { inject as injectAnalytics } from '@vercel/analytics';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { AuthStore } from './app/core/auth.store';
 import { sessionInterceptor } from './app/core/session.interceptor';
+import { redactAnalyticsUrl } from './app/core/analytics';
+
+injectAnalytics({
+  mode: isDevMode() ? 'development' : 'production',
+  beforeSend: redactAnalyticsUrl,
+});
 
 bootstrapApplication(AppComponent, {
   providers: [

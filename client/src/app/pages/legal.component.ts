@@ -20,7 +20,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
       <a routerLink="/">Return to the gallery</a>
     } @else if (mode === 'privacy') {
       <h1>Privacy notice and retention</h1>
-      <p>Effective October 4, 2026 · Version 2026-10-04</p>
+      <p>Effective October 5, 2026 · Version 2026-10-05</p>
       <p>
         Atelier is a personal portfolio gallery maintained by the owner of
         <a href="https://github.com/khalifehbasiri/Gallery-web-app"
@@ -53,8 +53,21 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
         States; Upstash supplies Redis; Render processes email jobs in the
         United States; Resend delivers email when enabled. Providers may process
         data in other locations under their own terms. Data may cross borders.
-        We do not sell account data or install advertising/product analytics
-        trackers.
+        We do not sell account data or install advertising trackers.
+      </p>
+      <h2>Web analytics</h2>
+      <p>
+        We use Vercel Web Analytics to understand visits and page views. It
+        collects page paths, referrer information, approximate location, and
+        browser/device information for aggregate traffic statistics without
+        analytics cookies. We remove query strings and URL fragments before
+        sending page views, including verification and password recovery tokens.
+        We do not send account email, credentials, or custom interaction events
+        to analytics. See
+        <a href="https://vercel.com/docs/analytics/privacy-policy"
+          >Vercel's analytics privacy information</a
+        >
+        for provider handling and retention.
       </p>
       <h2>Cookies and email choice</h2>
       <p>
