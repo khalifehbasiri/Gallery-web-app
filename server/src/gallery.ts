@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { randomUUID, createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { parseArtDetails } from './art-details.js';
 import {
   HttpError,
   artistOnly,
@@ -235,6 +237,7 @@ export function galleryRoutes(
         artwork: {
           ...summary(row),
           description: doc.description,
+          ...(doc.artDetails ? { artDetails: doc.artDetails } : {}),
           reviews: await loadReviews(id, 12, 0),
         },
         artist,
@@ -594,6 +597,7 @@ export function galleryRoutes(
       category = textField(req.body, 'category'),
       medium = textField(req.body, 'medium'),
       description = textField(req.body, 'description', 10000);
+    const artDetails = parseArtDetails(req.body?.artDetails, category);
     if (!/^\d{1,4}$/.test(year))
       throw new HttpError(400, 'Year must contain up to four digits.');
     const uploadId = textField(req.body, 'uploadId', 36);
@@ -633,7 +637,8 @@ export function galleryRoutes(
         doc.year !== year ||
         doc.category !== category ||
         doc.medium !== medium ||
-        doc.description !== description
+        doc.description !== description ||
+        !isDeepStrictEqual(doc.artDetails, artDetails)
       )
         throw new HttpError(
           409,
@@ -678,6 +683,7 @@ export function galleryRoutes(
         medium,
         description,
         imageUrl,
+        ...(artDetails ? { artDetails } : {}),
       };
       await publish(sql, store, art);
       await cache.invalidate();

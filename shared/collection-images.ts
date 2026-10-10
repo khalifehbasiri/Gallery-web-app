@@ -1,5 +1,6 @@
 // Verified public-domain image records from The Metropolitan Museum of Art API.
 // JPEGs are pinned by SHA-256; no museum descriptions are copied.
+import { artFormImages } from './art-form-images.js';
 export const collectionImages = [
   {
     id: 437980,
@@ -422,14 +423,15 @@ export const demoCollectionKeys = [
 export const demoCollectionEntries = collectionImages
   .slice(0, 6)
   .map((image, index) => ({ image, seedKey: demoCollectionKeys[index]! }));
-export type CollectionImage = (typeof collectionImages)[number];
+export const allCollectionImages = [...collectionImages, ...artFormImages];
+export type CollectionImage = (typeof allCollectionImages)[number];
 
 export function collectionImage(imageUrl: string) {
   try {
     const filename = new URL(imageUrl, 'https://local.invalid').pathname
       .split('/')
       .pop();
-    return collectionImages.find((image) => image.file === filename);
+    return allCollectionImages.find((image) => image.file === filename);
   } catch {
     return undefined;
   }

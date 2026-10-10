@@ -10,6 +10,10 @@ import {
   LocalArtworkStore,
 } from '../server/src/local-database.js';
 import { demoData } from '../server/src/demo-data.js';
+import {
+  applyArtFormSeed,
+  buildArtFormSeed,
+} from '../server/src/art-form-seed.js';
 import { RedisDiscoveryCache } from '../server/src/cache.js';
 import { FakeRedis } from './helpers/fake-redis.js';
 import type { Sql } from '../server/src/database.js';
@@ -478,6 +482,81 @@ describe('PostgreSQL API and cookie security', () => {
       .send({ ...body, title: 'Changed retry' })
       .expect(409);
     assert.throws(() => imageType(Buffer.from('<script>x</script>')), /PNG/);
+  });
+  it('publishes structured sculpture details, preserves them in cached reads and compares them on retries', async () => {
+    const auth = await login('Maya Laurent');
+    const upload = await mutate('post', '/api/uploads', auth)
+      .send({ contentType: 'image/png', bytes: 10 })
+      .expect(201);
+    const body = {
+      title: 'Bronze study',
+      year: '2026',
+      category: 'Sculpture',
+      medium: 'Cast bronze',
+      description: 'A sculpture.',
+      uploadId: upload.body.id,
+      artDetails: {
+        type: 'sculpture',
+        material: 'Bronze',
+        dimensions: '25 × 12 × 10 cm',
+      },
+    };
+    await mutate('post', '/api/artworks', auth)
+      .send({ ...body, artDetails: { ...body.artDetails, dimensions: 25 } })
+      .expect(400);
+    await mutate('post', '/api/artworks', auth)
+      .send({ ...body, category: 'Photography' })
+      .expect(400);
+    const saved = await mutate('post', '/api/artworks', auth)
+      .send(body)
+      .expect(201);
+    assert.deepEqual(
+      (await artworks.get(saved.body.id))!.artDetails,
+      body.artDetails,
+    );
+    for (let i = 0; i < 2; i++) {
+      const detail = await request(app)
+        .get(`/api/artworks/${saved.body.id}`)
+        .expect(200);
+      assert.deepEqual(detail.body.artwork.artDetails, body.artDetails);
+    }
+    await mutate('post', '/api/artworks', auth).send(body).expect(200);
+    await mutate('post', '/api/artworks', auth)
+      .send({ ...body, artDetails: { ...body.artDetails, material: 'Marble' } })
+      .expect(409);
+  });
+  it('discovers every seeded form through gallery filters and reads details from the document store', async () => {
+    const seed = buildArtFormSeed('', artist);
+    const result = await applyArtFormSeed(sql, artworks, seed);
+    await cache.invalidate();
+    const stats = await request(app).get('/api/stats').expect(200);
+    for (const category of result.forms) {
+      assert.ok(stats.body.categories.includes(category));
+      const page = await request(app)
+        .get('/api/artworks')
+        .query({ category })
+        .expect(200);
+      assert.ok(
+        page.body.items.some((item: { id: string }) =>
+          seed.some((art) => art.id === item.id),
+        ),
+      );
+      assert.ok(
+        page.body.items.every(
+          (item: { category: string }) => item.category === category,
+        ),
+      );
+    }
+    for (const art of seed) {
+      const detail = await request(app)
+        .get(`/api/artworks/${art.id}`)
+        .expect(200);
+      assert.deepEqual(detail.body.artwork.artDetails, art.artDetails);
+    }
+    const search = await request(app)
+      .get('/api/artworks?search=bronze')
+      .expect(200);
+    assert.equal(search.body.total, 2);
   });
   it('pauses artwork writes during migration while keeping reads and relational activity available', async () => {
     const auth = await login('Maya Laurent');

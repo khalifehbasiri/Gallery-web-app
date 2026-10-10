@@ -6,15 +6,20 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { errorMessage } from '../core/errors';
+import { artForms, artFormForCategory } from '../../../../shared/art-forms';
 
 @Component({
   selector: 'app-create-artwork',
   imports: [IconComponent, RouterLink, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  styles: [
+    'fieldset { border: 0; padding: 0; margin: 0 0 1.5rem; } legend { font-weight: 600; margin-bottom: 1rem; }',
+  ],
   template: `
     <section class="page-width inner-page">
       <a class="back-link" routerLink="/account"
@@ -71,10 +76,34 @@ import { errorMessage } from '../core/errors';
                 id="category"
                 formControlName="category"
                 maxlength="200"
+                list="art-categories"
                 placeholder="Painting, sculpture…"
               />
+              <datalist id="art-categories">
+                @for (category of categories; track category) {
+                  <option [value]="category"></option>
+                }
+              </datalist>
             </div>
           </div>
+          @if (selectedForm(); as type) {
+            <fieldset>
+              <legend>{{ artForms[type].category }} details</legend>
+              @for (
+                field of artForms[type].fields;
+                track field.key;
+                let index = $index
+              ) {
+                <label [for]="field.key">{{ field.label }}</label>
+                <input
+                  [id]="field.key"
+                  [formControlName]="index === 0 ? 'detailOne' : 'detailTwo'"
+                  maxlength="200"
+                  [placeholder]="field.placeholder"
+                />
+              }
+            </fieldset>
+          }
           <label for="medium">Medium</label
           ><input
             id="medium"
@@ -103,6 +132,11 @@ import { errorMessage } from '../core/errors';
   `,
 })
 export class CreateArtworkComponent {
+  readonly artForms = artForms;
+  readonly categories = Object.values(artForms).map((form) => form.category);
+  selectedForm() {
+    return artFormForCategory(this.form.controls.category.value.trim());
+  }
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   readonly form = inject(FormBuilder).nonNullable.group({
@@ -114,11 +148,21 @@ export class CreateArtworkComponent {
     category: ['', Validators.required],
     medium: ['', Validators.required],
     description: ['', Validators.required],
+    detailOne: [''],
+    detailTwo: [''],
   });
   readonly preview = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
   private image: File | null = null;
+  constructor() {
+    this.form.controls.category.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => {
+        this.form.controls.detailOne.reset();
+        this.form.controls.detailTwo.reset();
+      });
+  }
   selectImage(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     this.image = null;
@@ -151,7 +195,23 @@ export class CreateArtworkComponent {
     this.error.set('');
     try {
       const body = new FormData();
-      for (const [key, value] of Object.entries(this.form.getRawValue()))
+      const { detailOne, detailTwo, ...values } = this.form.getRawValue();
+      const type = this.selectedForm();
+      if (type) {
+        if (!detailOne.trim() || !detailTwo.trim()) {
+          this.error.set('Complete the art form details.');
+          return;
+        }
+        body.append(
+          'artDetails',
+          JSON.stringify({
+            type,
+            [artForms[type].fields[0].key]: detailOne.trim(),
+            [artForms[type].fields[1].key]: detailTwo.trim(),
+          }),
+        );
+      }
+      for (const [key, value] of Object.entries(values))
         body.append(key, String(value).trim());
       body.append('image', this.image);
       const art = await firstValueFrom(this.api.createArtwork(body));

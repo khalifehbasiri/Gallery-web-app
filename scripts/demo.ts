@@ -12,6 +12,10 @@ import {
 import { localStorage } from '../server/src/local-storage.js';
 import { demoData } from '../server/src/demo-data.js';
 import {
+  applyArtFormSeed,
+  buildArtFormSeed,
+} from '../server/src/art-form-seed.js';
+import {
   applyCommunitySeed,
   buildCommunitySeed,
 } from '../server/src/community-seed.js';
@@ -38,6 +42,14 @@ await applyCommunitySeed(
   await buildCommunitySeed('', targets, patron),
 );
 const directory = await mkdtemp(path.join(os.tmpdir(), 'gallery-demo-'));
+const artist = String(
+  (
+    await sql.query(
+      "SELECT id FROM gallery.users WHERE username='Maya Laurent'",
+    )
+  ).rows[0]!['id'],
+);
+await applyArtFormSeed(sql, artworks, buildArtFormSeed('', artist));
 const { storage, router } = localStorage(
   directory,
   `http://localhost:${config.port}`,

@@ -165,7 +165,7 @@ export class ApiService {
             switchMap((response) => {
               if (!response.ok)
                 throw new Error('Image upload failed. Please try again.');
-              const fields: Record<string, string> = { uploadId: upload.id };
+              const fields: Record<string, unknown> = { uploadId: upload.id };
               for (const key of [
                 'title',
                 'year',
@@ -174,6 +174,10 @@ export class ApiService {
                 'description',
               ])
                 fields[key] = String(body.get(key) || '');
+              if (body.has('artDetails'))
+                fields['artDetails'] = JSON.parse(
+                  String(body.get('artDetails')),
+                );
               return this.http.post<Artwork>('/api/artworks', fields);
             }),
           ),

@@ -24,6 +24,7 @@ import type { ArtworkDetail, Review } from '../../../../shared/contracts';
 import { ApiService } from '../core/api.service';
 import { AuthStore } from '../core/auth.store';
 import { errorMessage } from '../core/errors';
+import { artDetailFacts } from '../../../../shared/art-forms';
 
 @Component({
   selector: 'app-artwork',
@@ -96,6 +97,15 @@ import { errorMessage } from '../core/errors';
             }
             <p class="art-description">{{ data.artwork.description }}</p>
             <dl class="art-facts">
+              @for (
+                fact of artDetailFacts(data.artwork.artDetails);
+                track fact.label
+              ) {
+                <div>
+                  <dt>{{ fact.label }}</dt>
+                  <dd>{{ fact.value }}</dd>
+                </div>
+              }
               <div>
                 <dt>Medium</dt>
                 <dd>{{ data.artwork.medium }}</dd>
@@ -199,6 +209,7 @@ import { errorMessage } from '../core/errors';
   `,
 })
 export class ArtworkComponent {
+  readonly artDetailFacts = artDetailFacts;
   readonly collectionImage = collectionImage;
   readonly isReferenceImage = isReferenceImage;
   readonly isDemoCollection = isDemoCollection;

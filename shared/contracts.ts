@@ -1,3 +1,4 @@
+import type { ArtDetails } from './art-forms.js';
 export type AccountRole = 'patron' | 'artist';
 
 export interface User {
@@ -29,6 +30,7 @@ export interface ArtworkSummary {
 }
 
 export interface Artwork extends ArtworkSummary {
+  artDetails?: ArtDetails;
   reviews: Review[];
 }
 

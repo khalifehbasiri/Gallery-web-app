@@ -24,6 +24,8 @@
     "maintenance": "node --env-file-if-exists=.env --import tsx scripts/maintenance.ts",
     "seed:hosted": "node --env-file-if-exists=.env --import tsx scripts/seed-hosted.ts",
     "seed:community": "node --env-file-if-exists=.env --import tsx scripts/seed-community.ts",
+    "seed:art-forms": "node --env-file-if-exists=.env --import tsx scripts/seed-art-forms.ts",
+    "seed:art-forms:apply": "node --env-file-if-exists=.env --import tsx scripts/seed-art-forms.ts --apply",
     "mongo:prepare": "node --env-file-if-exists=.env --import tsx scripts/prepare-mongodb.ts",
     "artworks:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate-artworks.ts",
     "worker": "node --env-file-if-exists=.env dist/scripts/notification-worker.js",

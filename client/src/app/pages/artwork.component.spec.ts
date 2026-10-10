@@ -13,6 +13,48 @@ import type { ArtworkDetail } from '../../../../shared/contracts';
 describe('Artwork review form', () => {
   let http: HttpTestingController;
   afterEach(() => http.verify());
+  it('renders the structured form details as escaped text', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+    });
+    http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(ArtworkComponent);
+    fixture.componentRef.setInput('id', 'sculpture');
+    fixture.detectChanges();
+    http.expectOne('/api/artworks/sculpture').flush({
+      artist: null,
+      artwork: {
+        id: 'sculpture',
+        title: 'Study',
+        artist: 'Artist',
+        year: '2026',
+        category: 'Sculpture',
+        medium: 'Bronze',
+        description: 'Study.',
+        imageUrl: '/test.jpg',
+        likeCount: 0,
+        reviewCount: 0,
+        liked: false,
+        reviews: [],
+        artDetails: {
+          type: 'sculpture',
+          material: '<script>bronze</script>',
+          dimensions: '70.2 cm',
+        },
+      },
+    });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const facts = fixture.nativeElement.querySelector('.art-facts');
+    expect(facts.textContent).toContain('Material');
+    expect(facts.textContent).toContain('<script>bronze</script>');
+    expect(facts.textContent).toContain('70.2 cm');
+    expect(facts.querySelector('script')).toBeNull();
+  });
 
   it('shows an optimistic heart immediately and restores it when persistence fails', async () => {
     TestBed.configureTestingModule({

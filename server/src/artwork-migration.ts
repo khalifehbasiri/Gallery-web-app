@@ -1,6 +1,8 @@
 import type { Sql } from './database.js';
 import type { ArtworkDocument, ArtworkStore } from './domain.js';
 import { objectId, textField } from './http.js';
+import { isDeepStrictEqual } from 'node:util';
+import { parseArtDetails } from './art-details.js';
 
 export interface ArtworkSnapshot {
   format: 1;
@@ -26,7 +28,9 @@ export function validateArtworkSnapshot(
   for (const art of snapshot.artworks) {
     if (
       !art ||
-      Object.keys(art).length !== fields.length ||
+      Object.keys(art).some(
+        (key) => ![...fields, 'artDetails'].includes(key),
+      ) ||
       fields.some((key) => typeof art[key] !== 'string')
     )
       throw new Error('Invalid artwork document.');
@@ -37,12 +41,19 @@ export function validateArtworkSnapshot(
     for (const key of ['title', 'category', 'medium'] as const)
       textField(art, key);
     textField(art, 'description', 10000);
+    if (
+      !isDeepStrictEqual(
+        parseArtDetails(art.artDetails, art.category),
+        art.artDetails,
+      )
+    )
+      throw new Error('Invalid artwork details.');
     if (!/^\d{1,4}$/.test(art.year) || !art.imageUrl.startsWith('https://'))
       throw new Error('Invalid artwork year or image URL.');
   }
 }
 function sameArtwork(a: ArtworkDocument, b: ArtworkDocument) {
-  return fields.every((key) => a[key] === b[key]);
+  return isDeepStrictEqual(a, b);
 }
 export async function verifyArtworkRegistry(
   sql: Sql,

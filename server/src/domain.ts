@@ -1,5 +1,6 @@
 import type { AccountRole, User } from '../../shared/contracts.js';
 import { randomBytes } from 'node:crypto';
+import type { ArtDetails } from '../../shared/art-forms.js';
 export type AccountUser = User & { passwordHash?: string };
 export interface ArtworkDocument {
   id: string;
@@ -10,6 +11,7 @@ export interface ArtworkDocument {
   medium: string;
   description: string;
   imageUrl: string;
+  artDetails?: ArtDetails;
 }
 export interface ArtworkStore {
   get(id: string): Promise<ArtworkDocument | null>;

@@ -6,7 +6,15 @@ import {
   mongoArtworks,
   mongoClient,
   prepareMongoArtworks,
+  artworkCollectionOptions,
+  artworkCollectionName,
+  legacyArtworkCollectionOptions,
 } from '../server/src/mongodb.js';
+import {
+  applyArtFormSeed,
+  buildArtFormSeed,
+} from '../server/src/art-form-seed.js';
+import { demoData } from '../server/src/demo-data.js';
 import { localDatabase } from '../server/src/local-database.js';
 import { publish } from '../server/src/catalog.js';
 import {
@@ -58,6 +66,10 @@ beforeEach(async () => {
   try {
     await client.connect();
     await client.db(config.mongoDatabase).collection('artworks').deleteMany({});
+    await client
+      .db(config.mongoDatabase)
+      .collection(artworkCollectionName)
+      .deleteMany({});
   } finally {
     await client.close();
   }
@@ -126,6 +138,108 @@ it('copies and verifies all fields without changing SQL relationships, and safel
       .rows[0]!['count'],
     1,
   );
+});
+it('stores all six forms as heterogeneous documents, reruns safely and exports their full nested details', async () => {
+  const source = new LocalArtworkStore();
+  await demoData(sql, source);
+  const artist = String(
+    (
+      await sql.query(
+        "SELECT id FROM gallery.users WHERE username='Maya Laurent'",
+      )
+    ).rows[0]!['id'],
+  );
+  // Demo paths are local; the real MongoDB integration uses HTTPS image URLs.
+  for (const doc of source.documents.values()) {
+    doc.imageUrl = `https://gallery.example${doc.imageUrl}`;
+    await target.create(doc);
+    await sql.query('UPDATE gallery.artworks SET image_url=$1 WHERE id=$2', [
+      doc.imageUrl,
+      doc.id,
+    ]);
+  }
+  const seed = buildArtFormSeed('https://gallery.example', artist);
+  const result = await applyArtFormSeed(sql, target, seed);
+  assert.equal(result.inserted, 8);
+  assert.equal(result.forms.length, 6);
+  assert.equal((await applyArtFormSeed(sql, target, seed)).inserted, 0);
+  for (const doc of seed) assert.deepEqual(await target.get(doc.id), doc);
+  const snapshot = await exportArtworkSnapshot(sql, target);
+  assert.equal(snapshot.artworks.length, 14);
+  const copy = new LocalArtworkStore();
+  await copyArtworkSnapshot(sql, copy, snapshot);
+  for (const doc of seed) assert.deepEqual(await copy.get(doc.id), doc);
+  copy.documents.get(seed[2]!.id)!.artDetails = {
+    type: 'sculpture',
+    material: 'Marble',
+    dimensions: '1 m',
+  };
+  await assert.rejects(verifyArtworkCopy(sql, copy, snapshot), /differs/);
+});
+it('enforces form-specific fields and matching categories in MongoDB even without API validation', async () => {
+  const details = {
+    type: 'sculpture',
+    material: 'Bronze',
+    dimensions: '70.2 cm',
+  };
+  for (const invalid of [
+    { category: 'Painting', artDetails: details },
+    { category: 'Sculpture', artDetails: { ...details, dimensions: 70 } },
+    {
+      category: 'Sculpture',
+      artDetails: { type: 'sculpture', material: 'Bronze' },
+    },
+    { category: 'Sculpture', artDetails: { ...details, camera: 'extra' } },
+    {
+      category: 'Sculpture',
+      artDetails: { ...details, material: ' '.repeat(3) },
+    },
+    {
+      category: 'Sculpture',
+      artDetails: { ...details, material: 'x'.repeat(201) },
+    },
+    { category: 'Sculpture', artDetails: { ...details, material: '\u0000' } },
+    { category: 'Sculpture', artDetails: null },
+  ])
+    await assert.rejects(
+      target.create({ ...art, ...invalid } as ArtworkDocument),
+      (error) => (error as { code: number }).code === 121,
+    );
+});
+it('preserves legacy reads and schema, prevents cross-collection duplicates, and rejects an unknown new validator', async () => {
+  const client = mongoClient(config);
+  try {
+    await client.connect();
+    const db = client.db(config.mongoDatabase);
+    await db.createCollection('artworks', legacyArtworkCollectionOptions);
+    const { id, ...content } = art;
+    await db.collection('artworks').insertOne({ _id: id as never, ...content });
+    await prepareMongoArtworks(config);
+    assert.deepEqual(await target.get(art.id), art);
+    assert.deepEqual(
+      (await db.listCollections({ name: 'artworks' }).next())!.options
+        .validator,
+      legacyArtworkCollectionOptions.validator,
+    );
+    await assert.rejects(
+      target.create(art),
+      (error) => (error as { code: number }).code === 11000,
+    );
+    await target.remove(art.id);
+    assert.equal(await target.get(art.id), null);
+    await db.command({
+      collMod: artworkCollectionName,
+      validator: {},
+      validationLevel: 'strict',
+      validationAction: 'error',
+    });
+    await assert.rejects(prepareMongoArtworks(config), /different validator/);
+  } finally {
+    await client
+      .db(config.mongoDatabase)
+      .command({ collMod: artworkCollectionName, ...artworkCollectionOptions });
+    await client.close();
+  }
 });
 it('rejects conflicting target content before copying any missing documents', async () => {
   const source = new LocalArtworkStore(),

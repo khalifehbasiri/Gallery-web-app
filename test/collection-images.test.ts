@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { collectionImages } from '../shared/collection-images.js';
+import { allCollectionImages as collectionImages } from '../shared/collection-images.js';
 import { imageType, maxImageBytes } from '../server/src/storage.js';
 
 test('all curated images match their source digests and valid bounded JPEGs', async () => {
-  assert.equal(new Set(collectionImages.map((image) => image.id)).size, 24);
+  assert.equal(new Set(collectionImages.map((image) => image.id)).size, 30);
   for (const image of collectionImages) {
     const bytes = await readFile(`client/public/artworks/${image.file}`);
     assert.equal(
