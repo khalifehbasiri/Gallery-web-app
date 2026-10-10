@@ -14,7 +14,10 @@ export function parseArtDetails(
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new HttpError(400, 'Art details must be an object.');
   const type = (value as Record<string, unknown>)['type'];
-  if (typeof type !== 'string' || !Object.hasOwn(artForms, type))
+  if (
+    typeof type !== 'string' ||
+    !Object.prototype.hasOwnProperty.call(artForms, type)
+  )
     throw new HttpError(400, 'Unknown art form.');
   const form = artForms[type as ArtForm];
   if (form.category !== category)
