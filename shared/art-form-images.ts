@@ -37,7 +37,7 @@ export const artFormImages = [
   {
     id: 51206,
     title: 'Meiping vase with floral scrolls',
-    creator: 'China',
+    creator: 'Unrecorded maker (China)',
     year: '1300',
     date: '14th century',
     medium:
@@ -90,7 +90,7 @@ export const artFormImages = [
   {
     id: 467642,
     title: 'The Unicorn Rests in a Garden (from the Unicorn Tapestries)',
-    creator: 'French (cartoon)/South Netherlandish (woven)',
+    creator: 'Unrecorded makers (French cartoon; South Netherlandish weaving)',
     year: '1495',
     date: '1495–1505',
     medium: 'Wool warp with wool, silk, silver, and gilt wefts',
