@@ -122,17 +122,19 @@ export class ArtistComponent {
       });
       return;
     }
+    const person = this.artist();
+    if (!person || this.busy()) return;
     this.busy.set(true);
     this.error.set('');
     try {
       const response = await firstValueFrom(
-        this.api.follow(this.id(), !this.artist()?.following),
+        this.api.follow(person.id, !person.following),
       );
       this.artist.update((artist) =>
-        artist ? { ...artist, ...response } : artist,
+        artist?.id === person.id ? { ...artist, ...response } : artist,
       );
     } catch (error) {
-      this.error.set(errorMessage(error));
+      if (this.id() === person.id) this.error.set(errorMessage(error));
     } finally {
       this.busy.set(false);
     }
