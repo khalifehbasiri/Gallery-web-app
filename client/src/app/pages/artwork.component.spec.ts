@@ -13,6 +13,98 @@ import type { ArtworkDetail } from '../../../../shared/contracts';
 describe('Artwork review form', () => {
   let http: HttpTestingController;
   afterEach(() => http.verify());
+  for (const action of ['submit', 'remove', 'more'] as const) {
+    for (const failed of [false, true]) {
+      it(`ignores a late ${action} review ${failed ? 'failure' : 'response'} after navigating to another artwork`, async () => {
+        TestBed.configureTestingModule({
+          providers: [
+            provideHttpClient(),
+            provideHttpClientTesting(),
+            provideRouter([]),
+          ],
+        });
+        http = TestBed.inject(HttpTestingController);
+        const fixture = TestBed.createComponent(ArtworkComponent);
+        const component = fixture.componentInstance;
+        const entry = {
+          id: 'review',
+          author: 'Patron',
+          authorId: 'patron',
+          text: 'A thought.',
+          owned: true,
+        };
+        const detail = (id: string): ArtworkDetail => ({
+          artist: null,
+          artwork: {
+            id,
+            title: 'Study',
+            artist: 'Artist',
+            year: '2026',
+            category: 'Painting',
+            medium: 'Oil',
+            description: 'Study.',
+            imageUrl: '/test.jpg',
+            likeCount: 0,
+            liked: false,
+            reviewCount: 13,
+            reviews: [entry],
+          },
+        });
+        fixture.componentRef.setInput('id', 'old');
+        fixture.detectChanges();
+        http.expectOne('/api/artworks/old').flush(detail('old'));
+        await fixture.whenStable();
+        component.review.setValue('A new thought.');
+        const operation =
+          action === 'submit'
+            ? component.submitReview()
+            : action === 'remove'
+              ? component.remove(entry)
+              : component.moreReviews();
+        const pending = http.expectOne(
+          (request) =>
+            request.url ===
+            (action === 'remove'
+              ? '/api/artworks/old/reviews/review'
+              : '/api/artworks/old/reviews'),
+        );
+        fixture.componentRef.setInput('id', 'new');
+        fixture.detectChanges();
+        const next = detail('new');
+        http.expectOne('/api/artworks/new').flush(next);
+        await fixture.whenStable();
+        component.review.setValue('Draft for the new artwork.');
+        if (failed)
+          pending.flush(
+            { error: 'Old request failed.' },
+            {
+              status: 503,
+              statusText: 'Unavailable',
+            },
+          );
+        else
+          pending.flush(
+            action === 'submit'
+              ? entry
+              : action === 'remove'
+                ? null
+                : { items: [entry], total: 13, page: 2, limit: 12, pages: 2 },
+          );
+        await operation;
+        expect(component.detail()).toEqual(next);
+        expect(component.error()).toBe('');
+        expect(component.review.value).toBe('Draft for the new artwork.');
+        if (action === 'more') {
+          const loading = component.moreReviews();
+          const request = http.expectOne(
+            '/api/artworks/new/reviews?page=2&limit=12',
+          );
+          request.flush({ items: [], total: 13, page: 2, limit: 12, pages: 2 });
+          await loading;
+        }
+      });
+    }
+  }
   it('renders the structured form details as escaped text', async () => {
     TestBed.configureTestingModule({
       providers: [

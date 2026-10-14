@@ -227,11 +227,13 @@ export class ArtworkComponent {
   private reviewPage = 1;
   async moreReviews() {
     if (this.reviewBusy()) return;
+    const artworkId = this.id();
     this.reviewBusy.set(true);
     try {
       const response = await firstValueFrom(
-        this.api.reviews(this.id(), this.reviewPage + 1),
+        this.api.reviews(artworkId, this.reviewPage + 1),
       );
+      if (this.id() !== artworkId) return;
       this.reviewPage = response.page;
       this.detail.update((data) =>
         data
@@ -253,7 +255,7 @@ export class ArtworkComponent {
           : data,
       );
     } catch (error) {
-      this.error.set(errorMessage(error));
+      if (this.id() === artworkId) this.error.set(errorMessage(error));
     } finally {
       this.reviewBusy.set(false);
     }
@@ -338,12 +340,14 @@ export class ArtworkComponent {
       this.error.set('Write a review first.');
       return;
     }
+    const artworkId = this.id();
     this.reviewBusy.set(true);
     this.error.set('');
     try {
       const review = await firstValueFrom(
-        this.api.review(this.id(), this.review.value.trim()),
+        this.api.review(artworkId, this.review.value.trim()),
       );
+      if (this.id() !== artworkId) return;
       this.detail.update((data) =>
         data
           ? {
@@ -358,16 +362,18 @@ export class ArtworkComponent {
       );
       this.review.reset();
     } catch (error) {
-      this.error.set(errorMessage(error));
+      if (this.id() === artworkId) this.error.set(errorMessage(error));
     } finally {
       this.reviewBusy.set(false);
     }
   }
   async remove(review: Review) {
+    const artworkId = this.id();
     this.removing.set(review.id);
     this.error.set('');
     try {
-      await firstValueFrom(this.api.removeReview(this.id(), review.id));
+      await firstValueFrom(this.api.removeReview(artworkId, review.id));
+      if (this.id() !== artworkId) return;
       this.detail.update((data) =>
         data
           ? {
@@ -383,7 +389,7 @@ export class ArtworkComponent {
           : data,
       );
     } catch (error) {
-      this.error.set(errorMessage(error));
+      if (this.id() === artworkId) this.error.set(errorMessage(error));
     } finally {
       this.removing.set('');
     }
