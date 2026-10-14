@@ -54,7 +54,7 @@ describe('Artwork image attribution', () => {
   it('credits shared demo artwork and shows a clear failure state when its image cannot load', () => {
     const fixture = card(demoCollectionDescription(featuredImage));
     const element: HTMLElement = fixture.nativeElement;
-    expect(element.querySelector('.art-card-meta')?.textContent).toContain(
+    expect(element.querySelector('.art-card-author')?.textContent).toContain(
       'Shared by Original artist',
     );
     expect(element.querySelector('.reference-label')).toBeNull();

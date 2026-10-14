@@ -17,6 +17,7 @@ pnpm-debug.log*
 coverage/
 dist/
 .angular/
+.taste-skill/
 
 # User-uploaded images
 uploads/

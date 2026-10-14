@@ -1,4 +1,3 @@
-import { featuredImage } from '../../../../shared/collection-images';
 import { IconComponent } from '../shared/icon.component';
 import {
   ChangeDetectionStrategy,
@@ -23,66 +22,23 @@ import { ArtCardComponent } from '../shared/art-card.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="hero page-width">
-      <div class="hero-copy">
-        <p class="eyebrow">
-          <span class="status-dot"></span> A SPACE FOR ART & THE PEOPLE BEHIND
-          IT
-        </p>
-        <h1>Find something<br />that <em>moves you.</em></h1>
+      <h1>A closer look at art.</h1>
+      <div class="hero-intro">
         <p class="hero-description">
-          A gallery without walls. Discover independent artists, save the works
-          you love, and make room for a little more creativity.
+          A collection of museum works and shared discoveries. Find your next
+          favorite.
         </p>
-        <div class="hero-actions">
+        <nav class="hero-actions" aria-label="Collection shortcut">
           <a class="button" href="#collection"
-            >Explore the collection
-            <span><app-icon name="arrow-up-right" /></span></a
-          ><a class="text-link" routerLink="/workshops"
-            >Learn with an artist <app-icon name="arrow-right"
+            >Browse artworks <app-icon name="arrow-down"
           /></a>
-        </div>
-        <div class="hero-stats">
-          <div>
-            <strong>{{ stats()?.artworks ?? '—' }}</strong
-            ><span>works to discover</span>
-          </div>
-          <div>
-            <strong>{{ stats()?.artists ?? '—' }}</strong
-            ><span>creative voices</span>
-          </div>
-          <div>
-            <strong>{{ stats()?.workshops ?? '—' }}</strong
-            ><span>ways to learn</span>
-          </div>
-        </div>
-      </div>
-      <div class="hero-art">
-        <div class="hero-image-frame">
-          <img
-            [src]="'/artworks/' + featured.file"
-            [alt]="featured.alt"
-            [width]="featured.width"
-            [height]="featured.height"
-            fetchpriority="high"
-            decoding="async"
-          />
-          <div class="hero-art-caption">
-            <span>{{ featured.title }} · {{ featured.creator }}</span
-            ><a
-              [href]="featured.sourceUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              >The Met, CC0 <app-icon name="arrow-up-right"
-            /></a>
-          </div>
-        </div>
+        </nav>
       </div>
     </section>
     <section id="collection" class="collection page-width">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">THE COLLECTION</p>
-          <h2>Good art. <em>Great company.</em></h2>
+          <h2>The collection</h2>
         </div>
         @if (auth.isArtist()) {
           <a class="button button-outline" routerLink="/artworks/new"
@@ -100,7 +56,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
           ><span class="sr-only">Search artworks</span
           ><input
             formControlName="search"
-            placeholder="Search art, artists, and ideas…"
+            placeholder="Search the collection…"
             type="search"
             maxlength="120" /></label
         ><label class="category-field"
@@ -111,15 +67,20 @@ import { ArtCardComponent } from '../shared/art-card.component';
               <option [value]="category">{{ category }}</option>
             }
           </select></label
-        ><button class="text-button" type="button" (click)="reset()">
-          Reset filters
-        </button>
+        >
+        @if (
+          store.query().search || store.query().category || store.query().artist
+        ) {
+          <button class="text-button" type="button" (click)="reset()">
+            Reset filters
+          </button>
+        }
       </form>
       <div class="results-heading">
-        <p>
+        <p role="status" aria-live="polite" aria-atomic="true">
           {{
             store.loading()
-              ? 'Finding your next favorite…'
+              ? 'Searching the collection…'
               : store.total() +
                 (store.total() === 1 ? ' work to explore' : ' works to explore')
           }}
@@ -146,7 +107,7 @@ import { ArtCardComponent } from '../shared/art-card.component';
       } @else if (!store.items().length) {
         <div class="empty-state">
           <span class="empty-mark"><app-icon name="arrow-up-right" /></span>
-          <h3>A little room for possibility.</h3>
+          <h3>No matching artworks</h3>
           <p>
             No artworks match these filters. Try another search or share the
             first work.
@@ -190,27 +151,19 @@ import { ArtCardComponent } from '../shared/art-card.component';
       }
     </section>
     <section class="community-banner page-width">
-      <div>
-        <p class="eyebrow">MAKE YOURSELF AT HOME</p>
-        <h2>A place for your<br /><em>creative side.</em></h2>
-      </div>
-      <div>
-        <p>
-          Keep a collection of favorites. Meet the people who made them. Learn
-          something you didn’t know you could do.
-        </p>
-        <a
-          class="button button-light"
-          [routerLink]="auth.signedIn() ? '/account' : '/register'"
-          >{{ auth.signedIn() ? 'Open your collection' : 'Find your people' }}
-          <app-icon name="arrow-up-right"
-        /></a>
-      </div>
+      <p>Keep the works you love.<br />Make a collection of your own.</p>
+      <a
+        class="button"
+        [routerLink]="auth.signedIn() ? '/account' : '/register'"
+        >{{
+          auth.signedIn() ? 'Open your collection' : 'Start your collection'
+        }}
+        <app-icon name="arrow-up-right"
+      /></a>
     </section>
   `,
 })
 export class GalleryComponent {
-  readonly featured = featuredImage;
   readonly store = inject(GalleryStore);
   readonly auth = inject(AuthStore);
   readonly stats = signal<GalleryStats | null>(null);

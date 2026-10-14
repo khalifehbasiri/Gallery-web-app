@@ -25,6 +25,8 @@ import type { ArtworkSummary } from '../../../../shared/contracts';
           <img
             [src]="art().imageUrl"
             [alt]="credit()?.alt ?? art().title"
+            [attr.width]="credit()?.width"
+            [attr.height]="credit()?.height"
             decoding="async"
             loading="lazy"
             (error)="unavailable.set(true)"
@@ -34,24 +36,21 @@ import type { ArtworkSummary } from '../../../../shared/contracts';
             ><app-icon name="image" /><span>Image unavailable</span></span
           >
         }
-        <span class="category-label">{{ art().category }}</span>
-        @if (reference()) {
-          <span class="reference-label">Reference image</span>
-        }
         <span class="art-card-arrow" aria-hidden="true"
           ><app-icon name="arrow-up-right"
         /></span>
       </div>
-      @if (credit(); as image) {
-        <p class="image-credit">
-          Image: {{ image.title }} · {{ image.creator }}
-        </p>
+      @if (reference()) {
+        <span class="reference-label">Reference image</span>
       }
       <div class="art-card-meta">
-        <p>{{ demoCollection() ? 'Shared by ' : '' }}{{ art().artist }}</p>
+        <p>{{ art().category }}</p>
         <span>{{ art().year }}</span>
       </div>
-      <h3>{{ art().title }}</h3>
+      <p class="art-card-title">{{ art().title }}</p>
+      <p class="art-card-author">
+        {{ demoCollection() ? 'Shared by ' : '' }}{{ art().artist }}
+      </p>
       <div class="art-card-bottom">
         <span>{{ art().medium }}</span
         ><span
@@ -62,6 +61,9 @@ import type { ArtworkSummary } from '../../../../shared/contracts';
           {{ art().likeCount }}</span
         >
       </div>
+      @if (credit(); as image) {
+        <p class="image-credit">Image: {{ image.creator }} · The Met, CC0</p>
+      }
     </a>
   `,
 })

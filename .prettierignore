@@ -4,6 +4,7 @@ uploads/
 coverage/
 JSON/
 .angular/
+.taste-skill/
 dist/
 .codex-local/
 .firebase/

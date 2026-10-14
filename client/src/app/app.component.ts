@@ -24,12 +24,24 @@ import { DOCUMENT } from '@angular/common';
       >Skip to content</a
     >
     <header class="site-header">
-      <a class="brand" routerLink="/" aria-label="Atelier home"
-        ><span class="brand-mark">A</span>atelier<span class="brand-dot"
-          >.</span
-        ></a
+      <a class="brand" routerLink="/" aria-label="Atelier home">atelier.</a>
+      <button
+        #menuTrigger
+        class="text-button menu-toggle"
+        type="button"
+        aria-controls="main-navigation"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.set(!menuOpen())"
       >
-      <nav aria-label="Main navigation">
+        {{ menuOpen() ? 'Close menu' : 'Menu' }}
+      </button>
+      <nav
+        id="main-navigation"
+        aria-label="Main navigation"
+        [class.is-open]="menuOpen()"
+        (click)="menuOpen.set(false)"
+        (keydown.escape)="menuOpen.set(false); menuTrigger.focus()"
+      >
         <a
           routerLink="/"
           routerLinkActive="active"
@@ -58,7 +70,7 @@ import { DOCUMENT } from '@angular/common';
         } @else {
           <a class="text-button" routerLink="/login">Sign in</a
           ><a class="button button-small" routerLink="/register"
-            >Join the community <app-icon name="arrow-up-right"
+            >Join Atelier <app-icon name="arrow-up-right"
           /></a>
         }
       </div>
@@ -68,12 +80,13 @@ import { DOCUMENT } from '@angular/common';
     }
     <main id="main" tabindex="-1"><router-outlet /></main>
     <footer class="site-footer">
-      <a class="brand" routerLink="/">atelier.</a>
-      <p>Portfolio demo: includes fictional profiles and sample activity.</p>
+      <p>
+        Atelier is a portfolio demo. Profiles and activity include fictional
+        examples.
+      </p>
       <nav aria-label="Legal">
         <a routerLink="/privacy">Privacy</a> · <a routerLink="/terms">Terms</a>
       </nav>
-      <span>Discover · Collect · Create</span>
     </footer>
   `,
 })
@@ -83,6 +96,7 @@ export class AppComponent {
   private readonly document = inject(DOCUMENT);
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly menuOpen = signal(false);
   skipToContent(event: Event) {
     event.preventDefault();
     this.document.getElementById('main')?.focus();
