@@ -318,6 +318,33 @@ describe('PostgreSQL API and cookie security', () => {
     assert.equal(response.body.items[0].id, first);
     assert.notEqual(response.body.items[0].id, last);
   });
+  it('keeps artwork filter names and combinations distinct in the shared cache', async () => {
+    await sql.query("UPDATE gallery.artworks SET search_document=''::tsvector");
+    await sql.query(
+      "UPDATE gallery.artworks SET search_document=to_tsvector('english','Painting') WHERE id=$1",
+      [art],
+    );
+    for (const [filters, total] of [
+      [{ category: 'Painting' }, 6],
+      [{ artist: 'Painting' }, 0],
+      [{ search: 'Painting' }, 1],
+      [{ category: 'Painting', artist: 'Painting' }, 0],
+      [{ category: 'Painting', search: 'Painting' }, 1],
+    ] as const) {
+      const first = await request(app)
+        .get('/api/artworks')
+        .query(filters)
+        .expect(200);
+      assert.equal(first.headers['x-cache'], 'MISS');
+      assert.equal(first.body.total, total);
+      const repeated = await request(app)
+        .get('/api/artworks')
+        .query(filters)
+        .expect(200);
+      assert.equal(repeated.headers['x-cache'], 'HIT');
+      assert.deepEqual(repeated.body, first.body);
+    }
+  });
   it('caches public detail, comments, artists and workshops without leaking personal flags', async () => {
     const auth = await login();
     await mutate('put', `/api/artworks/${art}/like`, auth).expect(200);

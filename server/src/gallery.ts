@@ -148,7 +148,7 @@ export function galleryRoutes(
       }
     const where = clauses.join(' AND ');
     const result = await cache.remember(
-      `artworks:${JSON.stringify({ values, page, limit })}`,
+      `artworks:${JSON.stringify({ where, values, page, limit })}`,
       async () => {
         const rows = (
           await sql.query(
