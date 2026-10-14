@@ -7,7 +7,7 @@ import {
   withState,
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, debounceTime, EMPTY, pipe, switchMap, tap } from 'rxjs';
+import { catchError, EMPTY, pipe, switchMap, tap, timer } from 'rxjs';
 import type {
   ArtworkSummary,
   GalleryQuery,
@@ -33,9 +33,9 @@ export const GalleryStore = signalStore(
     load: rxMethod<GalleryQuery>(
       pipe(
         tap((query) => patchState(store, { query, loading: true, error: '' })),
-        debounceTime(200),
         switchMap((query) =>
-          api.artworks(query).pipe(
+          timer(200).pipe(
+            switchMap(() => api.artworks(query)),
             tap((result) =>
               patchState(store, {
                 items: result.items,
