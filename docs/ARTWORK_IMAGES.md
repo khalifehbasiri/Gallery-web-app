@@ -1,6 +1,6 @@
 # Artwork images and credits
 
-The landing and sign-in pages feature **Cypresses** by Vincent van Gogh (1889). The collection uses actual artwork photographs, with visible creator/source credits and image-specific alternative text. SVG icons use `currentColor`, remain hidden from assistive technology, and retain readable button/link labels.
+The sign-in page features **Cypresses** by Vincent van Gogh (1889). The public landing page opens directly into the searchable collection, using actual artwork photographs with visible creator/source credits and image-specific alternative text. SVG icons use `currentColor`, remain hidden from assistive technology, and retain readable button/link labels. See [the public-gallery design review](FRONTEND_REVIEW.md).
 
 The 24 JPEGs below were downloaded from The Metropolitan Museum of Art's API only after confirming `isPublicDomain: true`. The Met releases these images under [CC0 1.0](https://www.metmuseum.org/hubs/open-access). The pinned source records, download URLs, dimensions and SHA-256 digests live in `shared/collection-images.ts`. No museum descriptions were copied. The first six works form the demo collection; the rest are reference images for preserved records with lost originals.
 
@@ -37,7 +37,7 @@ A reference image is visibly labeled on the card and detail page. Its credit and
 
 ## Storage and delivery
 
-Bundled JPEGs live in `client/public/artworks/`, with their content digest in the filename, and are served by Vercel's CDN with an immutable one-year browser cache. They require no museum API calls while browsing and add no storage-service dependency to the isolated demo. User-created uploads still use validated private staging and public Supabase Storage. Artwork cards load images lazily, reserve their layout through CSS, and display a clear unavailable state on a real network failure; the hero loads eagerly with explicit dimensions. Source artwork is shown in full on the detail page.
+Bundled JPEGs live in `client/public/artworks/`, with their content digest in the filename, and are served by Vercel's CDN with an immutable one-year browser cache. They require no museum API calls while browsing and add no storage-service dependency to the isolated demo. User-created uploads still use validated private staging and public Supabase Storage. Artwork cards load images lazily, reserve their layout through square CSS frames, include the recorded dimensions for known museum images, and display a clear unavailable state on a real network failure. Images are contained within the frames rather than cropped; source artwork is also shown in full on the detail page.
 
 ## Safe hosted repair
 

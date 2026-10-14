@@ -35,8 +35,8 @@ This maps the 37 requested areas to code, operational evidence and remaining wor
 | 29  | Testing                 | API, Angular, real MongoDB/Redis, security/race/failure regressions and hosted smoke checks                     |
 | 30  | Deployment              | Vercel, Atlas, Supabase, Upstash and Render Free; staged promotion pipeline                                     |
 | 31  | Secrets/config          | Ignored local files, server-only provider settings, narrow processor credentials                                |
-| 32  | CI/CD                   | Automated tests/build/format/runtime audit; gated deployment workflow needs owner-provided credentials          |
-| 33  | Analytics               | No advertising/product analytics tracker installed                                                              |
+| 32  | CI/CD                   | Automated quality gate; staged Vercel promotion and Render hook, verified 14 October 2026                       |
+| 33  | Analytics               | Vercel page views with query/fragment redaction; dashboard activation required; no custom events                |
 | 34  | SEO                     | Basic route titles/description; SSR, rich artwork previews and sitemap pending                                  |
 | 35  | Privacy/legal           | Notices, consent, export/deletion and retention; formal legal review/contact/provider assessment pending        |
 | 36  | Documentation           | Architecture/API/security/operations/migration/account guides and evidence-linked checklist                     |
